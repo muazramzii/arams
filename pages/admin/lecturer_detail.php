@@ -1,0 +1,569 @@
+<?php
+// ============================================================
+//  ARAMS — Admin: Lecturer Detail View (with charts)
+// ============================================================
+$pageTitle  = 'Lecturer Detail';
+$activePage = 'lecturers';
+require_once __DIR__ . '/../../includes/header.php';
+
+$db    = getDB();
+$lecId = (int)($_GET['id'] ?? 0);
+if (!$lecId) { header('Location: /arams/pages/admin/lecturers.php'); exit; }
+
+// ── Lecturer profile ──────────────────────────────────────
+$lec = $db->prepare(
+    "SELECT l.*, f.faculty_name, f.faculty_code, u.email
+     FROM Tbl_Lecturer l
+     JOIN Tbl_Faculty f ON f.faculty_id = l.faculty_id
+     JOIN Tbl_User u ON u.user_id = l.user_id
+     WHERE l.lecturer_id = ?"
+);
+$lec->execute([$lecId]); $lec = $lec->fetch();
+if (!$lec) { header('Location: /arams/pages/admin/lecturers.php'); exit; }
+
+// ── KPI ───────────────────────────────────────────────────
+$kpi = $db->prepare("SELECT * FROM vw_lecturer_kpi WHERE lecturer_id = ?");
+$kpi->execute([$lecId]); $k = $kpi->fetch() ?: [];
+
+// ── Publications ──────────────────────────────────────────
+$pubs = $db->prepare(
+    "SELECT p.*, rd.submission_date FROM Tbl_Publication p
+     JOIN Tbl_Research_Data rd ON p.data_id = rd.data_id
+     WHERE rd.lecturer_id = ? AND rd.status = 'Approved'
+     ORDER BY p.pub_year DESC"
+);
+$pubs->execute([$lecId]); $publications = $pubs->fetchAll();
+
+// ── Publication type counts ───────────────────────────────
+$pubTypes = $db->prepare(
+    "SELECT pub_type, COUNT(*) AS cnt FROM Tbl_Publication p
+     JOIN Tbl_Research_Data rd ON p.data_id = rd.data_id
+     WHERE rd.lecturer_id = ? AND rd.status = 'Approved'
+     GROUP BY pub_type ORDER BY cnt DESC"
+);
+$pubTypes->execute([$lecId]); $pubTypes = $pubTypes->fetchAll();
+
+// ── Quartile counts ───────────────────────────────────────
+$quartiles = $db->prepare(
+    "SELECT quartile, COUNT(*) AS cnt FROM Tbl_Publication p
+     JOIN Tbl_Research_Data rd ON p.data_id = rd.data_id
+     WHERE rd.lecturer_id = ? AND rd.status = 'Approved'
+     GROUP BY quartile"
+);
+$quartiles->execute([$lecId]); $quartiles = $quartiles->fetchAll();
+$qMap = array_column($quartiles, 'cnt', 'quartile');
+
+// ── Publication trend by year ─────────────────────────────
+$pubTrend = $db->prepare(
+    "SELECT p.pub_year AS yr, COUNT(*) AS cnt FROM Tbl_Publication p
+     JOIN Tbl_Research_Data rd ON p.data_id = rd.data_id
+     WHERE rd.lecturer_id = ? AND rd.status = 'Approved'
+       AND p.pub_year >= YEAR(NOW()) - 5
+     GROUP BY p.pub_year ORDER BY p.pub_year"
+);
+$pubTrend->execute([$lecId]); $pubTrend = $pubTrend->fetchAll();
+
+// ── Grants ────────────────────────────────────────────────
+$grants = $db->prepare(
+    "SELECT g.*, rd.status FROM Tbl_Grant g
+     JOIN Tbl_Research_Data rd ON g.data_id = rd.data_id
+     WHERE rd.lecturer_id = ? AND rd.status = 'Approved'
+     ORDER BY g.start_date DESC"
+);
+$grants->execute([$lecId]); $grants = $grants->fetchAll();
+
+// ── Grant category counts ─────────────────────────────────
+$grantCats = $db->prepare(
+    "SELECT grant_category, COUNT(*) AS cnt FROM Tbl_Grant g
+     JOIN Tbl_Research_Data rd ON g.data_id = rd.data_id
+     WHERE rd.lecturer_id = ? AND rd.status = 'Approved'
+     GROUP BY grant_category ORDER BY cnt DESC"
+);
+$grantCats->execute([$lecId]); $grantCats = $grantCats->fetchAll();
+
+// ── Grant role counts ─────────────────────────────────────
+$grantRoles = $db->prepare(
+    "SELECT role, COUNT(*) AS cnt FROM Tbl_Grant g
+     JOIN Tbl_Research_Data rd ON g.data_id = rd.data_id
+     WHERE rd.lecturer_id = ? AND rd.status = 'Approved'
+     GROUP BY role ORDER BY cnt DESC"
+);
+$grantRoles->execute([$lecId]); $grantRoles = $grantRoles->fetchAll();
+
+// ── Awards ────────────────────────────────────────────────
+$awards = $db->prepare(
+    "SELECT * FROM Tbl_Award WHERE lecturer_id = ? ORDER BY award_year DESC"
+);
+$awards->execute([$lecId]); $awards = $awards->fetchAll();
+
+// ── H-Index history ───────────────────────────────────────
+$hindexes = $db->prepare(
+    "SELECT h.* FROM Tbl_HIndex h
+     JOIN Tbl_Research_Data rd ON h.data_id = rd.data_id
+     WHERE rd.lecturer_id = ? AND rd.status = 'Approved'
+     ORDER BY h.record_year DESC"
+);
+$hindexes->execute([$lecId]); $hindexes = $hindexes->fetchAll();
+
+// ── Pre-calculate percentages ─────────────────────────────
+$pubMax  = max(array_column($pubTrend, 'cnt') ?: [1]);
+$typeMax = max(array_column($pubTypes, 'cnt') ?: [1]);
+$barPcts  = [];
+foreach ($pubTrend as $r) $barPcts[]  = round(($r['cnt'] / $pubMax)  * 100);
+$typePcts = [];
+foreach ($pubTypes as $r) $typePcts[] = round(($r['cnt'] / $typeMax) * 100);
+
+// ── Colour palettes ───────────────────────────────────────
+$pubTypeColors   = ['#0B3C5D','#1B998B','#3b82f6','#8b5cf6','#f59e0b','#ef4444','#22c55e','#ec4899'];
+$grantCatColors  = ['#0B3C5D','#1B998B','#3b82f6','#f59e0b','#8b5cf6','#ef4444','#22c55e'];
+$grantRoleColors = ['#0B3C5D','#1B998B','#f59e0b'];
+
+// ── Photo ─────────────────────────────────────────────────
+$photo    = $lec['profile_photo'] ?? '';
+$photoUrl = ($photo && file_exists(__DIR__ . '/../../assets/images/profiles/' . $photo))
+            ? '/arams/assets/images/profiles/' . htmlspecialchars($photo)
+            : '';
+$initials = strtoupper(substr($lec['full_name'], 0, 2));
+?>
+
+<!-- Back button -->
+<div style="margin-bottom:1rem;display:flex;gap:.75rem;flex-wrap:wrap">
+    <a href="/arams/pages/admin/lecturers.php" class="btn btn-outline btn-sm">
+        <i class="fas fa-arrow-left"></i> Back to All Lecturers
+    </a>
+    <a href="/arams/pages/admin/lecturer_report.php?lecturer_id=<?= $lecId ?>"
+       class="btn btn-primary btn-sm">
+        <i class="fas fa-file-alt"></i> Generate Performance Report
+    </a>
+</div>
+
+<!-- ── PROFILE HEADER ─────────────────────────────────── -->
+<div class="card" style="margin-bottom:1rem">
+    <div style="display:flex;align-items:center;gap:1.25rem;flex-wrap:wrap">
+
+        <!-- Avatar / Photo -->
+        <?php if ($photoUrl): ?>
+        <img src="<?= $photoUrl ?>"
+             style="width:76px;height:76px;border-radius:50%;object-fit:cover;
+                    border:3px solid var(--teal);flex-shrink:0">
+        <?php else: ?>
+        <div style="width:76px;height:76px;border-radius:50%;
+                    background:linear-gradient(135deg,var(--blue),var(--teal));
+                    display:flex;align-items:center;justify-content:center;
+                    font-size:26px;font-weight:700;color:#fff;flex-shrink:0">
+            <?= $initials ?>
+        </div>
+        <?php endif; ?>
+
+        <div style="flex:1">
+            <h2 style="font-size:20px;margin:0 0 4px"><?= htmlspecialchars($lec['full_name']) ?></h2>
+            <p style="font-size:13px;color:var(--muted);margin:0 0 6px">
+                <?= htmlspecialchars($lec['position'] ?? 'Lecturer') ?> •
+                <?= htmlspecialchars($lec['department'] ?? $lec['faculty_name']) ?>
+            </p>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px">
+                <span class="badge badge-green">Active</span>
+                <span class="badge badge-grey"><?= htmlspecialchars($lec['faculty_code']) ?></span>
+                <?php if ($lec['grade']): ?>
+                <span class="badge badge-grey"><?= htmlspecialchars($lec['grade']) ?></span>
+                <?php endif; ?>
+                <?php if ($lec['research_centre']): ?>
+                <span class="badge badge-teal"><?= htmlspecialchars($lec['research_centre']) ?></span>
+                <?php endif; ?>
+            </div>
+            <!-- Research IDs -->
+            <div style="display:flex;gap:1rem;flex-wrap:wrap;font-size:12px">
+                <?php if ($lec['scopus_id']): ?>
+                <a href="https://www.scopus.com/authid/detail.uri?authorId=<?= htmlspecialchars($lec['scopus_id']) ?>"
+                   target="_blank" style="color:var(--teal)">
+                    <i class="fas fa-external-link-alt" style="font-size:10px"></i>
+                    Scopus: <?= htmlspecialchars($lec['scopus_id']) ?>
+                </a>
+                <?php endif; ?>
+                <?php if ($lec['orcid_id']): ?>
+                <a href="https://orcid.org/<?= htmlspecialchars($lec['orcid_id']) ?>"
+                   target="_blank" style="color:var(--teal)">
+                    <i class="fas fa-external-link-alt" style="font-size:10px"></i>
+                    ORCID: <?= htmlspecialchars($lec['orcid_id']) ?>
+                </a>
+                <?php endif; ?>
+                <?php if ($lec['lens_id']): ?>
+                <a href="https://www.lens.org/lens/profile/<?= htmlspecialchars($lec['lens_id']) ?>"
+                   target="_blank" style="color:var(--teal)">
+                    <i class="fas fa-external-link-alt" style="font-size:10px"></i>
+                    Lens: <?= htmlspecialchars($lec['lens_id']) ?>
+                </a>
+                <?php endif; ?>
+                <?php if ($lec['researcher_id']): ?>
+                <a href="https://www.webofscience.com/wos/author/record/<?= htmlspecialchars($lec['researcher_id']) ?>"
+                   target="_blank" style="color:var(--teal)">
+                    <i class="fas fa-external-link-alt" style="font-size:10px"></i>
+                    ResearcherID: <?= htmlspecialchars($lec['researcher_id']) ?>
+                </a>
+                <?php endif; ?>
+            </div>
+        </div>
+
+        <div style="text-align:right;font-size:13px">
+            <div style="color:var(--muted);font-size:11px">Email</div>
+            <div style="font-weight:500;margin-bottom:6px">
+                <a href="mailto:<?= htmlspecialchars($lec['email'] ?? '') ?>"
+                   style="color:var(--teal)">
+                    <?= htmlspecialchars($lec['email'] ?? '—') ?>
+                </a>
+            </div>
+            <div style="color:var(--muted);font-size:11px">Staff No</div>
+            <div style="font-weight:600"><?= htmlspecialchars($lec['staff_no']) ?></div>
+        </div>
+    </div>
+</div>
+
+<!-- ── KPI CARDS ─────────────────────────────────────── -->
+<div class="kpi-grid" style="margin-bottom:1rem">
+    <div class="kpi-card bg-blue">
+        <i class="fas fa-file-alt"></i>
+        <div class="kpi-val"><?= (int)($k['total_publications'] ?? 0) ?></div>
+        <div class="kpi-label">Publications</div>
+        <div class="kpi-chg">Q1: <?= (int)($k['q1_pubs'] ?? 0) ?> &nbsp;Q2: <?= (int)($k['q2_pubs'] ?? 0) ?></div>
+    </div>
+    <div class="kpi-card bg-purple">
+        <i class="fas fa-trophy"></i>
+        <div class="kpi-val"><?= (int)($k['total_grants'] ?? 0) ?></div>
+        <div class="kpi-label">Grants</div>
+        <div class="kpi-chg"><?= (int)($k['grants_as_pi'] ?? 0) ?> as PI</div>
+    </div>
+    <div class="kpi-card bg-teal">
+        <i class="fas fa-chart-line"></i>
+        <div class="kpi-val"><?= (int)($k['current_hindex'] ?? 0) ?></div>
+        <div class="kpi-label">H-Index (Scopus)</div>
+        <div class="kpi-chg">Citations: <?= number_format((int)($k['total_citations'] ?? 0)) ?></div>
+    </div>
+    <div class="kpi-card bg-green">
+        <i class="fas fa-dollar-sign"></i>
+        <div class="kpi-val">RM <?= number_format((float)($k['total_income_rm'] ?? 0) / 1000, 0) ?>K</div>
+        <div class="kpi-label">Research Income</div>
+        <div class="kpi-chg">IP: <?= (int)($k['total_ip'] ?? 0) ?> records</div>
+    </div>
+</div>
+
+<!-- ── ROW 1: Publication Trend + Quartile Donut ────── -->
+<div class="grid-2" style="margin-bottom:1rem">
+
+    <!-- Trend Chart -->
+    <div class="card">
+        <div class="card-title">
+            <i class="fas fa-chart-bar" style="color:var(--blue)"></i>
+            Publications by Year
+        </div>
+        <?php if (empty($pubTrend)): ?>
+        <p style="color:var(--muted);font-size:13px;text-align:center;padding:2rem 0">
+            No approved publications yet.
+        </p>
+        <?php else: ?>
+        <div class="bar-chart" style="height:140px">
+            <?php foreach ($pubTrend as $i => $row):
+                $bs = 'height:' . $barPcts[$i] . '%;background:linear-gradient(0deg,var(--blue),var(--blue-light))';
+            ?>
+            <div class="bar-col">
+                <div class="bar-val"><?= $row['cnt'] ?></div>
+                <div class="bar" style="<?= $bs ?>"></div>
+                <div class="bar-label"><?= $row['yr'] ?></div>
+            </div>
+            <?php endforeach; ?>
+        </div>
+        <div style="font-size:10px;color:var(--muted);text-align:center;margin-top:6px">
+            Approved publications per year
+        </div>
+        <?php endif; ?>
+    </div>
+
+    <!-- Quartile Donut -->
+    <div class="card">
+        <div class="card-title">
+            <i class="fas fa-chart-pie" style="color:var(--teal)"></i>
+            Quartile Distribution
+        </div>
+        <div id="quartileDonut"></div>
+    </div>
+</div>
+
+<!-- ── ROW 2: Publication Type Donut + Grant Category Donut ── -->
+<div class="grid-2" style="margin-bottom:1rem">
+
+    <!-- Publication Type Donut -->
+    <div class="card">
+        <div class="card-title">
+            <i class="fas fa-chart-pie" style="color:#3b82f6"></i>
+            Publication Types
+            <span style="font-size:11px;color:var(--muted);font-weight:400;margin-left:4px">
+                (<?= array_sum(array_column($pubTypes,'cnt')) ?> total)
+            </span>
+        </div>
+        <?php if (empty($pubTypes)): ?>
+        <p style="color:var(--muted);font-size:13px;text-align:center;padding:1.5rem 0">No data.</p>
+        <?php else: ?>
+        <div id="pubTypeDonut"></div>
+        <?php endif; ?>
+    </div>
+
+    <!-- Grant Category Donut -->
+    <div class="card">
+        <div class="card-title">
+            <i class="fas fa-chart-pie" style="color:#8b5cf6"></i>
+            Grant Categories
+            <span style="font-size:11px;color:var(--muted);font-weight:400;margin-left:4px">
+                (<?= array_sum(array_column($grantCats,'cnt')) ?> total)
+            </span>
+        </div>
+        <?php if (empty($grantCats)): ?>
+        <p style="color:var(--muted);font-size:13px;text-align:center;padding:1.5rem 0">No data.</p>
+        <?php else: ?>
+        <div id="grantCatDonut"></div>
+        <?php endif; ?>
+    </div>
+</div>
+
+<!-- ── ROW 3: Publication Breakdown + Grant Role ─────── -->
+<div class="grid-2" style="margin-bottom:1rem">
+
+    <!-- Publication Breakdown Bars -->
+    <div class="card">
+        <div class="card-title">
+            <i class="fas fa-layer-group" style="color:var(--blue)"></i>
+            Publication Breakdown
+        </div>
+        <?php if (empty($pubTypes)): ?>
+        <p style="color:var(--muted);font-size:13px">No data.</p>
+        <?php else: ?>
+        <?php foreach ($pubTypes as $i => $pt):
+            $col = $pubTypeColors[$i % count($pubTypeColors)];
+            $ws  = 'width:' . $typePcts[$i] . '%';
+        ?>
+        <div style="margin-bottom:.75rem">
+            <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px">
+                <div style="display:flex;align-items:center;gap:7px">
+                    <div style="width:10px;height:10px;border-radius:50%;background:<?= $col ?>;flex-shrink:0"></div>
+                    <span><?= htmlspecialchars($pt['pub_type']) ?></span>
+                </div>
+                <strong><?= $pt['cnt'] ?></strong>
+            </div>
+            <div style="height:7px;background:var(--grey-mid);border-radius:4px;overflow:hidden">
+                <div style="<?= $ws ?>;height:100%;border-radius:4px;background:<?= $col ?>"></div>
+            </div>
+        </div>
+        <?php endforeach; ?>
+        <?php endif; ?>
+    </div>
+
+    <!-- Grant Role Donut + Bars -->
+    <div class="card">
+        <div class="card-title">
+            <i class="fas fa-user-tag" style="color:#8b5cf6"></i>
+            Grant by Role (PI / Co-I / Member)
+        </div>
+        <?php if (empty($grantRoles)): ?>
+        <p style="color:var(--muted);font-size:13px">No data.</p>
+        <?php else: ?>
+        <div id="grantRoleDonut" style="margin-bottom:1rem"></div>
+        <?php
+        $totalGR = array_sum(array_column($grantRoles,'cnt')) ?: 1;
+        foreach ($grantRoles as $i => $gr):
+            $col = $grantRoleColors[$i % count($grantRoleColors)];
+            $pct = round($gr['cnt'] / $totalGR * 100);
+            $ws  = 'width:' . $pct . '%';
+        ?>
+        <div style="margin-bottom:.75rem">
+            <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px">
+                <div style="display:flex;align-items:center;gap:7px">
+                    <div style="width:10px;height:10px;border-radius:50%;background:<?= $col ?>;flex-shrink:0"></div>
+                    <span><?= htmlspecialchars($gr['role']) ?></span>
+                </div>
+                <span>
+                    <strong><?= $gr['cnt'] ?></strong>
+                    <span style="color:var(--muted);font-size:11px">(<?= $pct ?>%)</span>
+                </span>
+            </div>
+            <div style="height:7px;background:var(--grey-mid);border-radius:4px;overflow:hidden">
+                <div style="<?= $ws ?>;height:100%;border-radius:4px;background:<?= $col ?>"></div>
+            </div>
+        </div>
+        <?php endforeach; ?>
+        <?php endif; ?>
+    </div>
+</div>
+
+<!-- ── ROW 4: Publications List + Grants + Awards ────── -->
+<div class="grid-2" style="margin-bottom:1rem">
+
+    <!-- Publications List -->
+    <div class="card">
+        <div class="card-title" style="justify-content:space-between">
+            <span><i class="fas fa-file-alt" style="color:var(--blue)"></i> Publications (<?= count($publications) ?>)</span>
+        </div>
+        <?php if (empty($publications)): ?>
+        <p style="color:var(--muted);font-size:13px">No approved publications.</p>
+        <?php else: ?>
+        <?php foreach (array_slice($publications, 0, 8) as $p): ?>
+        <div class="pub-card">
+            <div style="display:flex;gap:6px;margin-bottom:4px;flex-wrap:wrap">
+                <span class="badge badge-blue"><?= htmlspecialchars($p['pub_type']) ?></span>
+                <span class="badge badge-teal"><?= htmlspecialchars($p['indexing_type']) ?></span>
+                <?php if ($p['quartile'] !== 'N/A'): ?>
+                <span class="badge badge-purple"><?= $p['quartile'] ?></span>
+                <?php endif; ?>
+            </div>
+            <div class="pub-title" style="font-size:13px">
+                <?= htmlspecialchars(substr($p['title'], 0, 85)) ?><?= strlen($p['title']) > 85 ? '…' : '' ?>
+            </div>
+            <div class="pub-meta">
+                <?= htmlspecialchars($p['journal_name'] ?? '') ?>
+                <?= $p['pub_year'] ? ' • ' . $p['pub_year'] : '' ?>
+                <?php if ($p['doi']): ?>
+                • <a href="https://doi.org/<?= htmlspecialchars($p['doi']) ?>"
+                     target="_blank" style="color:var(--teal)">DOI ↗</a>
+                <?php endif; ?>
+            </div>
+        </div>
+        <?php endforeach; ?>
+        <?php if (count($publications) > 8): ?>
+        <p style="font-size:12px;color:var(--muted);text-align:center;margin-top:.5rem">
+            + <?= count($publications) - 8 ?> more publications
+        </p>
+        <?php endif; ?>
+        <?php endif; ?>
+    </div>
+
+    <!-- Grants + H-Index + Awards -->
+    <div style="display:flex;flex-direction:column;gap:1rem">
+
+        <!-- Grants -->
+        <div class="card">
+            <div class="card-title">
+                <i class="fas fa-trophy" style="color:#8b5cf6"></i>
+                Grants (<?= count($grants) ?>)
+            </div>
+            <?php if (empty($grants)): ?>
+            <p style="color:var(--muted);font-size:13px">No grants.</p>
+            <?php else: ?>
+            <?php foreach ($grants as $g): ?>
+            <div style="padding:8px 0;border-bottom:1px solid var(--border);font-size:13px">
+                <div style="font-weight:600;margin-bottom:2px">
+                    <?= htmlspecialchars(substr($g['grant_title'], 0, 60)) ?><?= strlen($g['grant_title']) > 60 ? '…' : '' ?>
+                </div>
+                <div style="font-size:12px;color:var(--muted);display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+                    <span><?= htmlspecialchars($g['grant_category']) ?></span>
+                    <span class="badge <?= $g['role']==='PI' ? 'badge-blue' : 'badge-grey' ?>"
+                          style="font-size:10px"><?= $g['role'] ?></span>
+                    <?php if ($g['amount']): ?>
+                    <span style="color:var(--green);font-weight:600">RM <?= number_format((float)$g['amount']) ?></span>
+                    <?php endif; ?>
+                    <span class="badge <?= $g['status']==='Active' ? 'badge-green' : 'badge-grey' ?>"
+                          style="font-size:10px"><?= $g['status'] ?></span>
+                </div>
+            </div>
+            <?php endforeach; ?>
+            <?php endif; ?>
+        </div>
+
+        <!-- H-Index History -->
+        <?php if (!empty($hindexes)): ?>
+        <div class="card">
+            <div class="card-title">
+                <i class="fas fa-chart-line" style="color:var(--teal)"></i>
+                H-Index History
+            </div>
+            <table class="arams-table">
+                <thead><tr><th>Year</th><th>H-Index</th><th>Citations</th><th>Source</th></tr></thead>
+                <tbody>
+                <?php foreach ($hindexes as $h): ?>
+                <tr>
+                    <td><?= $h['record_year'] ?></td>
+                    <td style="font-weight:700;color:var(--blue);font-size:16px"><?= $h['hindex_value'] ?></td>
+                    <td><?= $h['citation_count'] !== null ? number_format($h['citation_count']) : '—' ?></td>
+                    <td><?= htmlspecialchars($h['source']) ?></td>
+                </tr>
+                <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+        <?php endif; ?>
+
+        <!-- Awards -->
+        <?php if (!empty($awards)): ?>
+        <div class="card">
+            <div class="card-title">
+                <i class="fas fa-medal" style="color:#f59e0b"></i>
+                Awards (<?= count($awards) ?>)
+            </div>
+            <?php foreach ($awards as $aw): ?>
+            <div style="padding:7px 0;border-bottom:1px solid var(--border);font-size:13px">
+                <div style="font-weight:600"><?= htmlspecialchars($aw['award_name']) ?></div>
+                <div style="font-size:12px;color:var(--muted);display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:2px">
+                    <?php if ($aw['award_type']): ?>
+                    <span style="background:#fef9c3;color:#854d0e;padding:1px 7px;border-radius:10px;font-size:11px">
+                        <?= htmlspecialchars($aw['award_type']) ?>
+                    </span>
+                    <?php endif; ?>
+                    <span><?= $aw['award_year'] ?></span>
+                    <span class="badge <?= $aw['level']==='International' ? 'badge-blue' : ($aw['level']==='National' ? 'badge-teal' : 'badge-grey') ?>"
+                          style="font-size:10px"><?= $aw['level'] ?></span>
+                    <?php if ($aw['organiser']): ?>
+                    <span style="color:var(--muted)"><?= htmlspecialchars($aw['organiser']) ?></span>
+                    <?php endif; ?>
+                </div>
+            </div>
+            <?php endforeach; ?>
+        </div>
+        <?php endif; ?>
+    </div>
+</div>
+
+<!-- ── CHARTS JS ──────────────────────────────────────── -->
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+
+    // Quartile Donut
+    renderDonut('quartileDonut', [
+        { label:'Q1',  value:<?= (int)($qMap['Q1']  ?? 0) ?>, color:'#0B3C5D' },
+        { label:'Q2',  value:<?= (int)($qMap['Q2']  ?? 0) ?>, color:'#1B998B' },
+        { label:'Q3',  value:<?= (int)($qMap['Q3']  ?? 0) ?>, color:'#3b82f6' },
+        { label:'Q4',  value:<?= (int)($qMap['Q4']  ?? 0) ?>, color:'#8b5cf6' },
+        { label:'N/A', value:<?= (int)($qMap['N/A'] ?? 0) ?>, color:'#e2e8f0' },
+    ]);
+
+    <?php if (!empty($pubTypes)): ?>
+    // Publication Type Donut
+    renderDonut('pubTypeDonut', [
+        <?php foreach ($pubTypes as $i => $pt):
+            $col = $pubTypeColors[$i % count($pubTypeColors)];
+        ?>
+        { label:'<?= addslashes($pt['pub_type']) ?>', value:<?= (int)$pt['cnt'] ?>, color:'<?= $col ?>' },
+        <?php endforeach; ?>
+    ]);
+    <?php endif; ?>
+
+    <?php if (!empty($grantCats)): ?>
+    // Grant Category Donut
+    renderDonut('grantCatDonut', [
+        <?php foreach ($grantCats as $i => $gc):
+            $col = $grantCatColors[$i % count($grantCatColors)];
+        ?>
+        { label:'<?= addslashes($gc['grant_category']) ?>', value:<?= (int)$gc['cnt'] ?>, color:'<?= $col ?>' },
+        <?php endforeach; ?>
+    ]);
+    <?php endif; ?>
+
+    <?php if (!empty($grantRoles)): ?>
+    // Grant Role Donut
+    renderDonut('grantRoleDonut', [
+        <?php foreach ($grantRoles as $i => $gr):
+            $col = $grantRoleColors[$i % count($grantRoleColors)];
+        ?>
+        { label:'<?= addslashes($gr['role']) ?>', value:<?= (int)$gr['cnt'] ?>, color:'<?= $col ?>' },
+        <?php endforeach; ?>
+    ]);
+    <?php endif; ?>
+});
+</script>
+
+<?php require_once __DIR__ . '/../../includes/footer.php'; ?>

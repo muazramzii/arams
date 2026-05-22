@@ -1,0 +1,343 @@
+<?php
+$pageTitle  = 'User Management';
+$activePage = 'users';
+require_once __DIR__ . '/../../includes/header.php';
+
+$db = getDB();
+
+$users = $db->query(
+    "SELECT u.user_id, u.email, u.role, u.is_active, u.created_at, u.last_login,
+            COALESCE(l.full_name, a.name) AS full_name,
+            COALESCE(f.faculty_code, 'Admin') AS faculty_code,
+            l.staff_no, l.lecturer_id
+     FROM Tbl_User u
+     LEFT JOIN Tbl_Lecturer l ON l.user_id = u.user_id
+     LEFT JOIN Tbl_Admin    a ON a.user_id = u.user_id
+     LEFT JOIN Tbl_Faculty  f ON f.faculty_id = l.faculty_id
+     ORDER BY u.role DESC, u.created_at ASC"
+)->fetchAll();
+
+$faculties = $db->query(
+    "SELECT faculty_id, faculty_code, faculty_name FROM Tbl_Faculty ORDER BY faculty_code"
+)->fetchAll();
+?>
+
+<div class="page-header-row">
+    <div class="page-header" style="margin:0">
+        <h1>User Management</h1>
+        <p>Manage all system accounts — lecturers and admins</p>
+    </div>
+    <button class="btn btn-teal" onclick="openCreateUserModal()">
+        <i class="fas fa-user-plus"></i> Add User
+    </button>
+</div>
+
+<div class="search-row">
+    <input type="text" class="search-input" placeholder="Search users…"
+           oninput="filterTable(this,'userTable')">
+    <select class="filter-select" onchange="filterBySelect(this,'userTable',2)">
+        <option value="">All Roles</option>
+        <option>Lecturer</option>
+        <option>Admin</option>
+    </select>
+</div>
+
+<div class="card">
+    <div class="table-wrap">
+        <table class="arams-table" id="userTable">
+            <thead><tr>
+                <th>#</th><th>Name</th><th>Role</th><th>Status</th>
+                <th>Email</th><th>Faculty</th><th>Last Login</th><th>Action</th>
+            </tr></thead>
+            <tbody>
+            <?php foreach ($users as $i => $u): ?>
+            <tr id="urow-<?= $u['user_id'] ?>">
+                <td style="color:var(--muted);font-size:12px"><?= $i+1 ?></td>
+                <td>
+                    <div style="display:flex;align-items:center;gap:9px">
+                        <div style="width:32px;height:32px;border-radius:50%;
+                                    background:<?= $u['role']==='Admin'?'var(--blue)':'var(--teal)' ?>;
+                                    display:flex;align-items:center;justify-content:center;
+                                    color:#fff;font-size:11px;font-weight:700;flex-shrink:0">
+                            <?= strtoupper(substr($u['full_name']??'?',0,2)) ?>
+                        </div>
+                        <div>
+                            <div style="font-weight:600;font-size:13px"><?= htmlspecialchars($u['full_name']??'—') ?></div>
+                            <?php if ($u['staff_no']): ?>
+                            <div style="font-size:11px;color:var(--muted)"><?= htmlspecialchars($u['staff_no']) ?></div>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                </td>
+                <td>
+                    <span class="badge <?= $u['role']==='Admin'?'badge-blue':'badge-teal' ?>">
+                        <i class="fas fa-<?= $u['role']==='Admin'?'shield-alt':'graduation-cap' ?>"
+                           style="font-size:10px;margin-right:3px"></i>
+                        <?= $u['role'] ?>
+                    </span>
+                </td>
+                <td>
+                    <span class="badge <?= $u['is_active']?'badge-green':'badge-red' ?>">
+                        <?= $u['is_active']?'Active':'Inactive' ?>
+                    </span>
+                </td>
+                <td style="font-size:13px"><?= htmlspecialchars($u['email']) ?></td>
+                <td><span class="badge badge-grey"><?= htmlspecialchars($u['faculty_code']) ?></span></td>
+                <td style="font-size:12px;color:var(--muted)">
+                    <?= $u['last_login'] ? date('d M Y',strtotime($u['last_login'])) : 'Never' ?>
+                </td>
+                <td>
+                    <div style="display:flex;gap:5px">
+                        <button class="btn btn-outline btn-sm"
+                                onclick="openEditUserModal(
+                                    <?= $u['user_id'] ?>,
+                                    '<?= htmlspecialchars(addslashes($u['full_name']??'')) ?>',
+                                    '<?= htmlspecialchars($u['email']) ?>',
+                                    <?= $u['is_active'] ?>)">Edit</button>
+                        <?php if ($u['is_active']): ?>
+                        <button class="btn btn-danger btn-sm"
+                                onclick="toggleUserStatus(<?= $u['user_id'] ?>,0)">Deactivate</button>
+                        <?php else: ?>
+                        <button class="btn btn-success btn-sm"
+                                onclick="toggleUserStatus(<?= $u['user_id'] ?>,1)">Activate</button>
+                        <?php endif; ?>
+                    </div>
+                </td>
+            </tr>
+            <?php endforeach; ?>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="stat-row" style="margin-top:1rem;padding:1rem;background:var(--card);
+     border:1px solid var(--border);border-radius:var(--radius)">
+    <?php
+    $total    = count($users);
+    $active   = count(array_filter($users, fn($u) => $u['is_active']));
+    $lecCount = count(array_filter($users, fn($u) => $u['role']==='Lecturer'));
+    $admCount = count(array_filter($users, fn($u) => $u['role']==='Admin'));
+    ?>
+    <div class="stat-item"><span>Total Users</span><strong><?= $total ?></strong></div>
+    <div class="stat-item"><span>Active</span><strong><?= $active ?></strong></div>
+    <div class="stat-item"><span>Lecturers</span><strong><?= $lecCount ?></strong></div>
+    <div class="stat-item"><span>Admins</span><strong><?= $admCount ?></strong></div>
+</div>
+
+<script>
+const facultyOpts = `
+    <option value="">— Select Faculty (Lecturer only) —</option>
+    <?php foreach ($faculties as $f): ?>
+    <option value="<?= $f['faculty_id'] ?>">
+        <?= htmlspecialchars($f['faculty_code']) ?> — <?= htmlspecialchars($f['faculty_name']) ?>
+    </option>
+    <?php endforeach; ?>
+`;
+
+function eyeBtn(inputId, iconId) {
+    return `<button type="button"
+        onclick="togglePwField('${inputId}','${iconId}')"
+        style="position:absolute;right:0;top:0;height:100%;width:40px;background:none;
+               border:none;cursor:pointer;color:#94a3b8;display:flex;align-items:center;
+               justify-content:center;border-radius:0 8px 8px 0;transition:.15s"
+        onmouseenter="this.style.color='#0B3C5D'"
+        onmouseleave="this.style.color='#94a3b8'"
+        title="Show/hide password">
+        <i class="fas fa-eye" id="${iconId}" style="font-size:14px"></i>
+    </button>`;
+}
+
+function pwField(id, iconId, name, placeholder, required = true) {
+    const req = required ? 'required minlength="8"' : 'minlength="8"';
+    return `<div style="position:relative">
+        <input class="form-control" type="password" id="${id}" name="${name}"
+               ${req} placeholder="${placeholder}" style="padding-right:42px">
+        ${eyeBtn(id, iconId)}
+    </div>`;
+}
+
+function togglePwField(inputId, iconId) {
+    const inp  = document.getElementById(inputId);
+    const icon = document.getElementById(iconId);
+    if (!inp || !icon) return;
+    inp.type = inp.type === 'password' ? 'text' : 'password';
+    icon.classList.toggle('fa-eye');
+    icon.classList.toggle('fa-eye-slash');
+    inp.focus();
+}
+
+function openCreateUserModal() {
+    openModal(`
+        <div class="modal-header">
+            <h3 class="modal-title">Create User Account</h3>
+            <button class="modal-close" onclick="closeModal()">×</button>
+        </div>
+        <form id="createUserForm" method="POST">
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">Full Name *</label>
+                    <input class="form-control" name="full_name" required placeholder="Dr. / Pn. / En. ...">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Staff No</label>
+                    <input class="form-control" name="staff_no" placeholder="UTH...">
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Email *</label>
+                <input class="form-control" name="email" type="email" required placeholder="name@uthm.edu.my">
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">Role *</label>
+                    <select class="form-control" name="role" required
+                            onchange="toggleFacultyField(this.value)">
+                        <option value="Lecturer">Lecturer</option>
+                        <option value="Admin">Admin (TNCPI)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Position</label>
+                    <select class="form-control" name="position">
+                        <option>Lecturer</option>
+                        <option>Senior Lecturer</option>
+                        <option>Associate Professor</option>
+                        <option>Professor</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-group" id="facultyField">
+                <label class="form-label">Faculty</label>
+                <select class="form-control" name="faculty_id">
+                    ${facultyOpts}
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Password *</label>
+                ${pwField('cPw','cPwIcon','password','Minimum 8 characters')}
+            </div>
+            <div class="form-group">
+                <label class="form-label">Confirm Password *</label>
+                ${pwField('cPwConf','cPwConfIcon','confirm_password','Re-enter password')}
+                <div id="cPwErr" style="font-size:12px;color:#dc2626;margin-top:4px;display:none">
+                    <i class="fas fa-exclamation-circle"></i> Passwords do not match.
+                </div>
+            </div>
+        </form>
+        <button class="btn btn-teal btn-full" style="margin-top:1rem"
+                onclick="submitCreate()">
+            <i class="fas fa-user-plus"></i> Create Account
+        </button>`);
+}
+
+function toggleFacultyField(role) {
+    const f = document.getElementById('facultyField');
+    if (f) f.style.display = role === 'Admin' ? 'none' : 'block';
+}
+
+function submitCreate() {
+    const form = document.getElementById('createUserForm');
+    const pw   = document.getElementById('cPw');
+    const conf = document.getElementById('cPwConf');
+    const err  = document.getElementById('cPwErr');
+    err.style.display = 'none';
+    pw.style.borderColor = conf.style.borderColor = '';
+    if (!form.checkValidity()) { form.reportValidity(); return; }
+    if (pw.value !== conf.value) {
+        err.style.display = 'block';
+        pw.style.borderColor = conf.style.borderColor = '#dc2626';
+        conf.focus(); return;
+    }
+    const btn = event.target;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating...';
+    fetch('/arams/api/add_lecturer.php', { method:'POST', body: new FormData(form) })
+        .then(r => r.json())
+        .then(res => {
+            if (res.success) { showToast(res.message,'success'); closeModal(); setTimeout(()=>location.reload(),1200); }
+            else showToast(res.message,'error');
+        })
+        .catch(() => showToast('Network error.','error'))
+        .finally(() => { btn.disabled=false; btn.innerHTML='<i class="fas fa-user-plus"></i> Create Account'; });
+}
+
+function openEditUserModal(userId, name, email, isActive) {
+    openModal(`
+        <div class="modal-header">
+            <h3 class="modal-title">Edit User</h3>
+            <button class="modal-close" onclick="closeModal()">×</button>
+        </div>
+        <form id="editUserForm" method="POST">
+            <input type="hidden" name="user_id" value="${userId}">
+            <div class="form-group">
+                <label class="form-label">Full Name</label>
+                <input class="form-control" name="full_name" value="${escapeHtml(name)}" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Email</label>
+                <input class="form-control" value="${escapeHtml(email)}"
+                       readonly style="background:var(--grey);cursor:not-allowed">
+            </div>
+            <div class="form-group">
+                <label class="form-label">New Password
+                    <span style="font-size:11px;color:var(--muted);font-weight:400">
+                        — leave blank to keep current</span>
+                </label>
+                ${pwField('ePw','ePwIcon','new_password','Leave blank to keep current', false)}
+            </div>
+            <div class="form-group">
+                <label class="form-label">Confirm New Password</label>
+                ${pwField('ePwConf','ePwConfIcon','confirm_password','Re-enter new password', false)}
+                <div id="ePwErr" style="font-size:12px;color:#dc2626;margin-top:4px;display:none">
+                    <i class="fas fa-exclamation-circle"></i> Passwords do not match.
+                </div>
+            </div>
+        </form>
+        <button class="btn btn-primary btn-full" style="margin-top:1rem"
+                onclick="submitEdit()">
+            <i class="fas fa-save"></i> Save Changes
+        </button>`);
+}
+
+function submitEdit() {
+    const form = document.getElementById('editUserForm');
+    const pw   = document.getElementById('ePw');
+    const conf = document.getElementById('ePwConf');
+    const err  = document.getElementById('ePwErr');
+    err.style.display = 'none';
+    pw.style.borderColor = conf.style.borderColor = '';
+    if (!form.checkValidity()) { form.reportValidity(); return; }
+    if (pw.value !== '' && pw.value !== conf.value) {
+        err.style.display = 'block';
+        pw.style.borderColor = conf.style.borderColor = '#dc2626';
+        conf.focus(); return;
+    }
+    const btn = event.target;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+    fetch('/arams/api/update_user.php', { method:'POST', body: new FormData(form) })
+        .then(r => r.json())
+        .then(res => {
+            if (res.success) { showToast(res.message,'success'); closeModal(); setTimeout(()=>location.reload(),1200); }
+            else showToast(res.message,'error');
+        })
+        .catch(() => showToast('Network error.','error'))
+        .finally(() => { btn.disabled=false; btn.innerHTML='<i class="fas fa-save"></i> Save Changes'; });
+}
+
+function toggleUserStatus(userId, newStatus) {
+    if (!confirm('Are you sure you want to ' + (newStatus ? 'activate' : 'deactivate') + ' this user?')) return;
+    fetch('/arams/api/toggle_user.php', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({user_id: userId, is_active: newStatus})
+    })
+    .then(r => r.json())
+    .then(res => {
+        if (res.success) { showToast('User updated.','success'); setTimeout(()=>location.reload(),1000); }
+        else showToast(res.message,'error');
+    });
+}
+</script>
+
+<?php require_once __DIR__ . '/../../includes/footer.php'; ?>
