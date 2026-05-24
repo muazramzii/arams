@@ -9,12 +9,24 @@ requireLogin();
 $user        = currentUser();
 $unreadCount = getUnreadNotifCount($user['user_id']);
 $isAdmin     = ($user['role'] === 'Admin');
-$initials    = strtoupper(implode('', array_map(fn($w) => $w[0], explode(' ', trim($user['name'])))));
-$initials    = substr($initials, 0, 2);
+$isTDPP      = ($user['role'] === 'TDPP');
 
-// ── Load profile photo from DB ────────────────────────────
+// ── Resolve display name (Admin/TDPP have no Tbl_Lecturer row) ──
+$displayName = $user['name'] ?? '';
+if ($isTDPP) {
+    $tdppRow = (getDB())->prepare("SELECT full_name FROM Tbl_TDPP WHERE user_id=?");
+    $tdppRow->execute([$user['user_id']]);
+    $tdppName = $tdppRow->fetchColumn();
+    if ($tdppName) $displayName = $tdppName;
+}
+if (empty(trim($displayName))) $displayName = $user['email'];
+
+$initials = strtoupper(implode('', array_map(fn($w) => $w[0] ?? '', array_filter(explode(' ', trim($displayName))))));
+$initials = substr($initials, 0, 2) ?: 'U';
+
+// ── Load profile photo from DB (lecturers only) ───────────
 $sidebarPhoto = '';
-if (!$isAdmin) {
+if (!$isAdmin && !$isTDPP) {
     $photoSt = (getDB())->prepare(
         "SELECT profile_photo FROM Tbl_Lecturer WHERE user_id = ?"
     );
@@ -34,19 +46,41 @@ $lecNav = [
     ['id' => 'dashboard', 'label' => 'Dashboard',          'icon' => 'tachometer-alt', 'url' => '/arams/pages/lecturer/dashboard.php'],
     ['id' => 'profile',   'label' => 'My Profile',          'icon' => 'user-circle',    'url' => '/arams/pages/lecturer/profile.php'],
     ['id' => 'research',  'label' => 'Research Management', 'icon' => 'flask',          'url' => '/arams/pages/lecturer/research.php'],
+    ['id' => 'tasks',     'label' => 'My KPI Tasks',        'icon' => 'list-check',     'url' => '/arams/pages/lecturer/tasks.php'],
     ['id' => 'timeline',  'label' => 'Timeline',            'icon' => 'history',        'url' => '/arams/pages/lecturer/timeline.php'],
     ['id' => 'analytics', 'label' => 'Analytics',           'icon' => 'chart-line',     'url' => '/arams/pages/lecturer/analytics.php'],
 ];
 $admNav = [
     ['id' => 'dashboard',  'label' => 'Dashboard',       'icon' => 'tachometer-alt', 'url' => '/arams/pages/admin/dashboard.php'],
     ['id' => 'lecturers',  'label' => 'All Lecturers',   'icon' => 'users',          'url' => '/arams/pages/admin/lecturers.php'],
-    ['id' => 'validation', 'label' => 'Validation',      'icon' => 'check-circle',   'url' => '/arams/pages/admin/validation.php'],
+  
     ['id' => 'analytics',  'label' => 'Analytics',       'icon' => 'chart-line',     'url' => '/arams/pages/admin/analytics.php'],
     ['id' => 'reports',    'label' => 'Reports',         'icon' => 'file-alt',       'url' => '/arams/pages/admin/reports.php'],
     ['id' => 'users',      'label' => 'User Management', 'icon' => 'users-cog',      'url' => '/arams/pages/admin/users.php'],
 ];
-$navItems   = $isAdmin ? $admNav : $lecNav;
-$dashUrl    = $isAdmin ? '/arams/pages/admin/dashboard.php' : '/arams/pages/lecturer/dashboard.php';
+$tdppNav = [
+    ['id' => 'dashboard',  'label' => 'Dashboard',       'icon' => 'tachometer-alt', 'url' => '/arams/pages/tdpp/dashboard.php'],
+    ['id' => 'lecturers',  'label' => 'My Lecturers',    'icon' => 'users',          'url' => '/arams/pages/tdpp/lecturers.php'],
+    ['id' => 'kpi',        'label' => 'KPI Tasks',       'icon' => 'list-check',     'url' => '/arams/pages/tdpp/kpi.php'],
+    ['id' => 'validation', 'label' => 'Validation',      'icon' => 'check-circle',   'url' => '/arams/pages/tdpp/validation.php'],
+    ['id' => 'analytics',  'label' => 'Analytics',       'icon' => 'chart-line',     'url' => '/arams/pages/tdpp/analytics.php'],
+    ['id' => 'users',      'label' => 'User Management', 'icon' => 'users-cog',      'url' => '/arams/pages/tdpp/users.php'],
+];
+
+if ($isAdmin) {
+    $navItems   = $admNav;
+    $dashUrl    = '/arams/pages/admin/dashboard.php';
+    $portalName = 'Admin Panel';
+} elseif ($isTDPP) {
+    $navItems   = $tdppNav;
+    $dashUrl    = '/arams/pages/tdpp/dashboard.php';
+    $portalName = 'TDPP Portal';
+} else {
+    $navItems   = $lecNav;
+    $dashUrl    = '/arams/pages/lecturer/dashboard.php';
+    $portalName = 'Lecturer Portal';
+}
+
 $profileUrl = '/arams/pages/lecturer/profile.php';
 $logoPath   = __DIR__ . '/../assets/images/uthm_logo.png';
 ?>
@@ -79,7 +113,7 @@ $logoPath   = __DIR__ . '/../assets/images/uthm_logo.png';
             </div>
             <div class="sidebar-logo-text">
                 <span class="sidebar-title">UTHM ARAMS</span>
-                <span class="sidebar-subtitle"><?= $isAdmin ? 'Admin Panel' : 'Lecturer Portal' ?></span>
+                <span class="sidebar-subtitle"><?= $portalName ?></span>
             </div>
         </div>
     </a>
@@ -97,7 +131,7 @@ $logoPath   = __DIR__ . '/../assets/images/uthm_logo.png';
             <div class="sidebar-avatar"><?= $initials ?></div>
             <?php endif; ?>
             <div class="sidebar-user-info">
-                <p><?= htmlspecialchars($user['name']) ?></p>
+                <p><?= htmlspecialchars($displayName) ?></p>
                 <span><?= htmlspecialchars($user['email']) ?></span>
             </div>
         </div>
@@ -134,7 +168,7 @@ $logoPath   = __DIR__ . '/../assets/images/uthm_logo.png';
             </button>
             <div>
                 <h2 class="topbar-title"><?= htmlspecialchars($pageTitle ?? 'Dashboard') ?></h2>
-                <p class="topbar-sub">Welcome back, <?= htmlspecialchars(explode(' ', $user['name'])[0]) ?></p>
+                <p class="topbar-sub">Welcome back, <?= htmlspecialchars(explode(' ', $displayName)[0]) ?></p>
             </div>
         </div>
         <div class="topbar-right">
@@ -165,7 +199,7 @@ $logoPath   = __DIR__ . '/../assets/images/uthm_logo.png';
                  title="My Profile">
             <?php else: ?>
             <div class="topbar-avatar"
-                 <?= !$isAdmin ? "onclick=\"window.location='{$profileUrl}'\" style=\"cursor:pointer\" title=\"My Profile\"" : '' ?>>
+                 <?= (!$isAdmin && !$isTDPP) ? "onclick=\"window.location='{$profileUrl}'\" style=\"cursor:pointer\" title=\"My Profile\"" : '' ?>>
                 <?= $initials ?>
             </div>
             <?php endif; ?>

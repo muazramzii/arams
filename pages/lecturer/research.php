@@ -389,7 +389,7 @@ function grantForm() { return `<form id="addForm" method="POST">
         <input class="form-control" name="funder" placeholder="e.g. MOHE, MOSTI"></div>
     </div>
     <div class="form-row">
-        <div class="form-group"><label class="form-label">Your Role</label>
+        <div class="form-group"><label class="form-label">Role</label>
         <select class="form-control" name="role"><option>PI</option><option>Co-I</option><option>Member</option></select></div>
         <div class="form-group"><label class="form-label">Amount (RM)</label>
         <input class="form-control" name="amount" type="number" step="0.01" min="0"></div>
@@ -464,7 +464,9 @@ function ipForm() { return `<form id="addForm" method="POST">
         <div class="form-group"><label class="form-label">Filing Date</label>
         <input class="form-control" name="filing_date" type="date"></div>
         <div class="form-group"><label class="form-label">Country</label>
-        <input class="form-control" name="country" value="Malaysia"></div>
+        <select class="form-control" name="country">
+            <option>Afghanistan</option><option>Albania</option><option>Algeria</option><option>Argentina</option><option>Australia</option><option>Austria</option><option>Bangladesh</option><option>Belgium</option><option>Brazil</option><option>Brunei</option><option>Cambodia</option><option>Canada</option><option>Chile</option><option>China</option><option>Colombia</option><option>Denmark</option><option>Egypt</option><option>Finland</option><option>France</option><option>Germany</option><option>Greece</option><option>Hong Kong</option><option>India</option><option>Indonesia</option><option>Iran</option><option>Iraq</option><option>Ireland</option><option>Italy</option><option>Japan</option><option>Jordan</option><option>Kenya</option><option>Kuwait</option><option>Laos</option><option selected>Malaysia</option><option>Maldives</option><option>Mexico</option><option>Myanmar</option><option>Nepal</option><option>Netherlands</option><option>New Zealand</option><option>Nigeria</option><option>Norway</option><option>Oman</option><option>Pakistan</option><option>Philippines</option><option>Poland</option><option>Portugal</option><option>Qatar</option><option>Russia</option><option>Saudi Arabia</option><option>Singapore</option><option>South Africa</option><option>South Korea</option><option>Spain</option><option>Sri Lanka</option><option>Sweden</option><option>Switzerland</option><option>Taiwan</option><option>Thailand</option><option>Turkey</option><option>United Arab Emirates</option><option>United Kingdom</option><option>United States</option><option>Vietnam</option><option>Yemen</option>
+        </select></div>
     </div>
     <div class="form-group"><label class="form-label">Registration Status</label>
     <select class="form-control" name="registration_status"><option>Filed</option><option>Pending</option><option>Granted</option><option>Registered</option></select></div>

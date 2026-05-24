@@ -4,7 +4,13 @@
 // ============================================================
 session_start();
 if (isset($_SESSION['user_id'])) {
-    header('Location: /arams/pages/' . ($_SESSION['role'] === 'Admin' ? 'admin' : 'lecturer') . '/dashboard.php');
+    $role = $_SESSION['role'] ?? 'Lecturer';
+    $folder = match($role) {
+        'Admin' => 'admin',
+        'TDPP'  => 'tdpp',
+        default => 'lecturer',
+    };
+    header('Location: /arams/pages/' . $folder . '/dashboard.php');
     exit;
 }
 $error = htmlspecialchars($_GET['error'] ?? '');
@@ -69,14 +75,18 @@ $error = htmlspecialchars($_GET['error'] ?? '');
                 </div>
 
                 <div class="form-label" style="margin-bottom:10px">Login as:</div>
-                <div class="role-grid">
+                <div class="role-grid" style="grid-template-columns:1fr 1fr 1fr">
                     <button type="button" class="role-card active-lec" id="r-lec"
                             onclick="setRole('Lecturer')">
                         <i class="fas fa-graduation-cap"></i> Lecturer
                     </button>
                     <button type="button" class="role-card" id="r-adm"
                             onclick="setRole('Admin')">
-                        <i class="fas fa-shield-alt"></i> Admin 
+                        <i class="fas fa-shield-alt"></i> Admin
+                    </button>
+                    <button type="button" class="role-card" id="r-tdpp"
+                            onclick="setRole('TDPP')">
+                        <i class="fas fa-user-tie"></i> TDPP
                     </button>
                 </div>
                 <input type="hidden" name="role" id="roleInput" value="Lecturer">
@@ -94,7 +104,8 @@ $error = htmlspecialchars($_GET['error'] ?? '');
             </div>
             <div class="login-footer" style="margin-top:6px;font-size:11px;opacity:.5">
                 test je dulu— Admin: admin.tncpi@uthm.edu.my / password<br>
-                Lecturer: rozlini@uthm.edu.my / password
+                Lecturer: rozlini@uthm.edu.my / password<br>
+                TDPP: tdpp@uthm.edu.my / password
             </div>
         </div>
         <p class="login-copy">© <?= date('Y') ?> Universiti Tun Hussein Onn Malaysia</p>
@@ -106,11 +117,13 @@ function setRole(role) {
     document.getElementById('roleInput').value = role;
     const hints = {
         Lecturer: 'Access your research profile and submit publications',
-        Admin:    'Manage system data and validate submissions'
+        Admin:    'Manage system data and validate submissions',
+        TDPP:     'Monitor faculty research performance and assign KPI tasks'
     };
     document.getElementById('roleHint').textContent = hints[role];
-    document.getElementById('r-lec').className = 'role-card' + (role === 'Lecturer' ? ' active-lec' : '');
-    document.getElementById('r-adm').className = 'role-card' + (role === 'Admin'    ? ' active-adm' : '');
+    document.getElementById('r-lec').className  = 'role-card' + (role === 'Lecturer' ? ' active-lec' : '');
+    document.getElementById('r-adm').className  = 'role-card' + (role === 'Admin'    ? ' active-adm' : '');
+    document.getElementById('r-tdpp').className = 'role-card' + (role === 'TDPP'     ? ' active-adm' : '');
 }
 
 function togglePassword() {

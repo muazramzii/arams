@@ -2,7 +2,7 @@
 // ============================================================
 //  ARAMS — Analytics (Lecturer + Admin shared)
 // ============================================================
-$pageTitle  = 'Analytics';
+$pageTitle  = 'Institutional Analytics';
 $activePage = 'analytics';
 require_once __DIR__ . '/../../includes/header.php';
 
@@ -179,7 +179,7 @@ $quartileColors = ['#0B3C5D','#1B998B','#3b82f6','#8b5cf6','#e2e8f0'];
             <?php foreach ($pubTrend as $i => $row):
                 $barStyle = 'height:' . $barPcts[$i] . '%;background:linear-gradient(0deg,var(--blue),var(--blue-light))';
             ?>
-            <div class="bar-col">
+            <div class="bar-col" style="cursor:pointer" onclick="drillDown('year', '<?= $row['yr'] ?>')" title="Click to view <?= $row['yr'] ?> publications">
                 <div class="bar-val"><?= $row['cnt'] ?></div>
                 <div class="bar" style="<?= $barStyle ?>"></div>
                 <div class="bar-label"><?= $row['yr'] ?></div>
@@ -205,7 +205,6 @@ $quartileColors = ['#0B3C5D','#1B998B','#3b82f6','#8b5cf6','#e2e8f0'];
 <!-- Row 2: Publication Type Donut + Grant Category Donut -->
 <div class="grid-2" style="margin-bottom:1rem">
 
-    <!-- Publication Type Donut — like UEMAS -->
     <div class="card">
         <div class="card-title">
             <i class="fas fa-chart-pie" style="color:#3b82f6"></i>
@@ -221,7 +220,6 @@ $quartileColors = ['#0B3C5D','#1B998B','#3b82f6','#8b5cf6','#e2e8f0'];
         <?php endif; ?>
     </div>
 
-    <!-- Grant Category Donut — like UEMAS -->
     <div class="card">
         <div class="card-title">
             <i class="fas fa-chart-pie" style="color:#8b5cf6"></i>
@@ -241,7 +239,6 @@ $quartileColors = ['#0B3C5D','#1B998B','#3b82f6','#8b5cf6','#e2e8f0'];
 <!-- Row 3: Publication Type Breakdown bars + Grant Role breakdown -->
 <div class="grid-2" style="margin-bottom:1rem">
 
-    <!-- Publication breakdown bars -->
     <div class="card">
         <div class="card-title">
             <i class="fas fa-layer-group" style="color:var(--blue)"></i>
@@ -254,7 +251,7 @@ $quartileColors = ['#0B3C5D','#1B998B','#3b82f6','#8b5cf6','#e2e8f0'];
             $widthStyle = 'width:' . $typePcts[$i] . '%';
             $col = $pubTypeColors[$i % count($pubTypeColors)];
         ?>
-        <div style="margin-bottom:.75rem">
+        <div style="margin-bottom:.75rem;cursor:pointer" onclick="drillDown('pubtype', '<?= addslashes($pt['pub_type']) ?>')" title="Click to view records">
             <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px">
                 <div style="display:flex;align-items:center;gap:7px">
                     <div style="width:10px;height:10px;border-radius:50%;background:<?= $col ?>;flex-shrink:0"></div>
@@ -270,7 +267,6 @@ $quartileColors = ['#0B3C5D','#1B998B','#3b82f6','#8b5cf6','#e2e8f0'];
         <?php endif; ?>
     </div>
 
-    <!-- Grant Role breakdown -->
     <div class="card">
         <div class="card-title">
             <i class="fas fa-user-tag" style="color:#8b5cf6"></i>
@@ -287,7 +283,7 @@ $quartileColors = ['#0B3C5D','#1B998B','#3b82f6','#8b5cf6','#e2e8f0'];
             $pct = round($gr['cnt'] / $totalGrants * 100);
             $wStyle = 'width:' . $pct . '%';
         ?>
-        <div style="margin-bottom:.75rem">
+        <div style="margin-bottom:.75rem;cursor:pointer" onclick="drillDown('grantrole', '<?= addslashes($gr['role']) ?>')" title="Click to view grants">
             <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px">
                 <div style="display:flex;align-items:center;gap:7px">
                     <div style="width:10px;height:10px;border-radius:50%;background:<?= $col ?>;flex-shrink:0"></div>
@@ -345,10 +341,25 @@ $quartileColors = ['#0B3C5D','#1B998B','#3b82f6','#8b5cf6','#e2e8f0'];
 </div>
 <?php endif; ?>
 
+<!-- ── Drill-Down Detail Panel (auto-appears at bottom) ── -->
+<div class="card" id="detailPanel" style="display:none;margin-top:1rem;scroll-margin-top:20px">
+    <div class="card-title" style="justify-content:space-between">
+        <span><i class="fas fa-list" style="color:var(--teal)"></i> <span id="detailTitle">Records</span>
+            <span id="detailCount" style="font-size:12px;color:var(--muted);font-weight:400;margin-left:6px"></span>
+        </span>
+        <button class="btn btn-outline btn-sm" onclick="closeDrill()"><i class="fas fa-times"></i> Close</button>
+    </div>
+    <div class="table-wrap">
+        <table class="arams-table" id="detailTable">
+            <thead id="detailHead"></thead>
+            <tbody id="detailBody"></tbody>
+        </table>
+    </div>
+</div>
+
 <script>
 document.addEventListener('DOMContentLoaded', function () {
 
-    // ── Quartile Donut ────────────────────────────────────
     renderDonut('quartileDonut', [
         { label:'Q1',  value:<?= (int)($qMap['Q1']  ?? 0) ?>, color:'#0B3C5D' },
         { label:'Q2',  value:<?= (int)($qMap['Q2']  ?? 0) ?>, color:'#1B998B' },
@@ -357,39 +368,115 @@ document.addEventListener('DOMContentLoaded', function () {
         { label:'N/A', value:<?= (int)($qMap['N/A'] ?? 0) ?>, color:'#e2e8f0' },
     ]);
 
-    // ── Publication Type Donut ────────────────────────────
     <?php if (!empty($pubTypes)): ?>
     renderDonut('pubTypeDonut', [
-        <?php foreach ($pubTypes as $i => $pt):
-            $col = $pubTypeColors[$i % count($pubTypeColors)];
-        ?>
+        <?php foreach ($pubTypes as $i => $pt): $col = $pubTypeColors[$i % count($pubTypeColors)]; ?>
         { label: '<?= addslashes($pt['pub_type']) ?>', value: <?= (int)$pt['cnt'] ?>, color: '<?= $col ?>' },
         <?php endforeach; ?>
     ]);
     <?php endif; ?>
 
-    // ── Grant Category Donut ──────────────────────────────
     <?php if (!empty($grantCats)): ?>
     renderDonut('grantCatDonut', [
-        <?php foreach ($grantCats as $i => $gc):
-            $col = $grantCatColors[$i % count($grantCatColors)];
-        ?>
+        <?php foreach ($grantCats as $i => $gc): $col = $grantCatColors[$i % count($grantCatColors)]; ?>
         { label: '<?= addslashes($gc['grant_category']) ?>', value: <?= (int)$gc['cnt'] ?>, color: '<?= $col ?>' },
         <?php endforeach; ?>
     ]);
     <?php endif; ?>
 
-    // ── Grant Role Donut ──────────────────────────────────
     <?php if (!empty($grantRoles)): ?>
     renderDonut('grantRoleDonut', [
-        <?php foreach ($grantRoles as $i => $gr):
-            $col = $grantRoleColors[$i % count($grantRoleColors)];
-        ?>
+        <?php foreach ($grantRoles as $i => $gr): $col = $grantRoleColors[$i % count($grantRoleColors)]; ?>
         { label: '<?= addslashes($gr['role']) ?>', value: <?= (int)$gr['cnt'] ?>, color: '<?= $col ?>' },
         <?php endforeach; ?>
     ]);
     <?php endif; ?>
+
+    // Attach donut legend clicks after render
+    setTimeout(function() {
+        attachDonutClicks('quartileDonut', 'quartile');
+        attachDonutClicks('pubTypeDonut',  'pubtype');
+        attachDonutClicks('grantCatDonut', 'grantcat');
+        attachDonutClicks('grantRoleDonut','grantrole');
+    }, 300);
 });
+
+function attachDonutClicks(donutId, filterType) {
+    var container = document.getElementById(donutId);
+    if (!container) return;
+    var items = container.querySelectorAll('.legend-item');
+    items.forEach(function(item){
+        item.style.cursor = 'pointer';
+        item.title = 'Click to view records';
+        item.addEventListener('mouseenter', function(){ item.style.opacity = '0.7'; });
+        item.addEventListener('mouseleave', function(){ item.style.opacity = '1'; });
+        item.addEventListener('click', function(){
+            var label = '';
+            var spans = item.querySelectorAll('span');
+            for (var i=0; i<spans.length; i++) {
+                if (!spans[i].classList.contains('legend-val')) { label = spans[i].textContent.trim(); break; }
+            }
+            if (label) drillDown(filterType, label);
+        });
+    });
+}
+
+function drillDown(type, value) {
+    var panel = document.getElementById('detailPanel');
+    var body  = document.getElementById('detailBody');
+    var head  = document.getElementById('detailHead');
+    document.getElementById('detailTitle').textContent = 'Loading...';
+    document.getElementById('detailCount').textContent = '';
+    body.innerHTML = '<tr><td style="padding:1.5rem;text-align:center;color:var(--muted)">Loading records...</td></tr>';
+    panel.style.display = 'block';
+    panel.scrollIntoView({ behavior:'smooth', block:'start' });
+
+    fetch('/arams/api/analytics_detail.php?type=' + encodeURIComponent(type) + '&value=' + encodeURIComponent(value))
+        .then(r => r.json())
+        .then(res => {
+            if (!res.success) { body.innerHTML = '<tr><td style="padding:1rem;color:var(--muted)">' + (res.message||'No data') + '</td></tr>'; return; }
+            document.getElementById('detailTitle').textContent = res.title;
+            document.getElementById('detailCount').textContent = '(' + res.count + ' record' + (res.count!=1?'s':'') + ')';
+
+            if (res.count === 0) {
+                head.innerHTML = '';
+                body.innerHTML = '<tr><td style="padding:1.5rem;text-align:center;color:var(--muted)">No records found for this selection.</td></tr>';
+                return;
+            }
+
+            if (res.kind === 'publication') {
+                head.innerHTML = '<tr><th>Title</th><th>Authors</th><th>Journal</th><th>Year</th><th>Quartile</th><th>Indexing</th><th>Status</th></tr>';
+                body.innerHTML = res.rows.map(function(r){
+                    return '<tr>' +
+                        '<td style="font-weight:600;font-size:12px;max-width:260px">' + esc(r.title) + '</td>' +
+                        '<td style="font-size:11px;color:var(--muted);max-width:180px">' + esc(r.authors) + '</td>' +
+                        '<td style="font-size:11px">' + esc(r.journal_name) + '</td>' +
+                        '<td>' + esc(r.pub_year) + '</td>' +
+                        '<td><span class="badge badge-blue" style="font-size:10px">' + esc(r.quartile) + '</span></td>' +
+                        '<td style="font-size:11px">' + esc(r.indexing_type) + '</td>' +
+                        '<td><span class="badge badge-green" style="font-size:10px">' + esc(r.status) + '</span></td>' +
+                        '</tr>';
+                }).join('');
+            } else {
+                head.innerHTML = '<tr><th>Grant Title</th><th>Code</th><th>Funder</th><th>Category</th><th>Level</th><th>Role</th><th>Amount</th><th>Status</th></tr>';
+                body.innerHTML = res.rows.map(function(r){
+                    return '<tr>' +
+                        '<td style="font-weight:600;font-size:12px;max-width:240px">' + esc(r.grant_title) + '</td>' +
+                        '<td style="font-size:11px">' + esc(r.grant_code) + '</td>' +
+                        '<td style="font-size:11px">' + esc(r.funder) + '</td>' +
+                        '<td style="font-size:11px">' + esc(r.grant_category) + '</td>' +
+                        '<td><span class="badge badge-grey" style="font-size:10px">' + esc(r.grant_level) + '</span></td>' +
+                        '<td><span class="badge badge-blue" style="font-size:10px">' + esc(r.role) + '</span></td>' +
+                        '<td style="font-size:11px">RM ' + Number(r.amount||0).toLocaleString() + '</td>' +
+                        '<td><span class="badge badge-green" style="font-size:10px">' + esc(r.status) + '</span></td>' +
+                        '</tr>';
+                }).join('');
+            }
+        })
+        .catch(function(){ body.innerHTML = '<tr><td style="padding:1rem;color:#dc2626">Error loading records.</td></tr>'; });
+}
+function closeDrill() { document.getElementById('detailPanel').style.display = 'none'; }
+function esc(s) { if (s===null||s===undefined) return '—'; return String(s).replace(/[&<>"]/g, function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
 </script>
 
 <?php require_once __DIR__ . '/../../includes/footer.php'; ?>
