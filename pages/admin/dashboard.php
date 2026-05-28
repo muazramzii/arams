@@ -24,8 +24,7 @@ $top5 = $db->query(
     "SELECT * FROM vw_lecturer_kpi ORDER BY total_publications DESC LIMIT 5"
 )->fetchAll();
 
-// Pending validations
-$pending = $db->query("SELECT * FROM vw_pending_validation LIMIT 6")->fetchAll();
+
 
 // Status distribution
 $statusDist = $db->query(
@@ -199,55 +198,6 @@ $rankStyle = ['🥇','🥈','🥉','4','5'];
     </div>
 </div>
 
-<!-- Pending Validations -->
-<div class="card">
-    <div class="card-title" style="justify-content:space-between">
-        <span>
-            <i class="fas fa-clock" style="color:var(--amber)"></i>
-            Pending Validations
-            <?php if ($totals['pending_count'] > 0): ?>
-            <span class="badge badge-yellow" style="margin-left:6px"><?= (int)$totals['pending_count'] ?></span>
-            <?php endif; ?>
-        </span>
-        <a href="/arams/pages/admin/validation.php" class="btn btn-primary btn-sm">View All →</a>
-    </div>
-    <div class="table-wrap">
-        <table class="arams-table">
-            <thead><tr><th>Lecturer</th><th>Faculty</th><th>Type</th><th>Title</th><th>Submitted</th><th>Action</th></tr></thead>
-            <tbody>
-            <?php foreach ($pending as $p): ?>
-            <tr id="prow-<?= $p['data_id'] ?>">
-                <td style="font-weight:600;font-size:13px"><?= htmlspecialchars($p['lecturer_name']) ?></td>
-                <td><span class="badge badge-grey"><?= htmlspecialchars($p['faculty_code']) ?></span></td>
-                <td><span class="badge badge-blue"><?= htmlspecialchars($p['record_type']) ?></span></td>
-                <td style="font-size:13px;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
-                    title="<?= htmlspecialchars($p['record_title'] ?? '') ?>">
-                    <?= htmlspecialchars(substr($p['record_title'] ?? '', 0, 50)) ?><?= strlen($p['record_title']??'') > 50 ? '…' : '' ?>
-                </td>
-                <td style="font-size:12px;color:var(--muted)"><?= $p['submission_date'] ?></td>
-                <td>
-                    <div style="display:flex;gap:6px">
-                        <button class="btn btn-success btn-sm"
-                                onclick="approveRecord(<?= $p['data_id'] ?>, '/arams/api/validate.php', document.getElementById('prow-<?= $p['data_id'] ?>'))">
-                            Approve
-                        </button>
-                        <button class="btn btn-danger btn-sm"
-                                onclick="rejectRecord(<?= $p['data_id'] ?>, '/arams/api/validate.php', document.getElementById('prow-<?= $p['data_id'] ?>'))">
-                            Reject
-                        </button>
-                    </div>
-                </td>
-            </tr>
-            <?php endforeach; ?>
-            <?php if (empty($pending)): ?>
-            <tr><td colspan="6" style="text-align:center;color:var(--muted);padding:2rem">
-                <i class="fas fa-check-circle" style="color:var(--green);font-size:24px;display:block;margin-bottom:8px"></i>
-                All submissions are reviewed. No pending validations.
-            </td></tr>
-            <?php endif; ?>
-            </tbody>
-        </table>
-    </div>
-</div>
+
 
 <?php require_once __DIR__ . '/../../includes/footer.php'; ?>

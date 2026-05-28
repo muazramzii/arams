@@ -64,9 +64,13 @@ function closeModal() {
     if (overlay) overlay.classList.remove('open');
 }
 
-// Close on overlay click
-document.addEventListener('click', function (e) {
-    if (e.target.id === 'modalOverlay') closeModal();
+// Overlay click does NOT close the modal (prevents accidental data loss).
+// Modal closes only via the × button, a Cancel button, or the Esc key.
+document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') {
+        const overlay = document.getElementById('modalOverlay');
+        if (overlay && overlay.classList.contains('open')) closeModal();
+    }
 });
 
 // ── NOTIFICATIONS ────────────────────────────────────────────
@@ -287,4 +291,96 @@ function escapeHtml(str) {
 
 function formatRM(n) {
     return 'RM ' + Number(n).toLocaleString('en-MY', { minimumFractionDigits: 2 });
+}
+
+// ── APPROVE / REJECT with in-system modal (overrides confirm/prompt versions) ──
+
+// Generic confirm modal — reuses the existing .modal-overlay / openModal system.
+// onConfirm runs when user clicks the confirm button.
+function confirmModal(opts, onConfirm) {
+    var title   = opts.title   || 'Confirm';
+    var message = opts.message || 'Are you sure?';
+    var confirmText = opts.confirmText || 'Confirm';
+    var confirmClass = opts.confirmClass || 'btn-primary';
+    var withReason = !!opts.withReason;       // show a textarea (for reject reason)
+    var reasonLabel = opts.reasonLabel || 'Reason (optional):';
+
+    var reasonHtml = withReason
+        ? '<div style="margin-top:12px">'
+        +   '<label style="font-size:13px;color:var(--muted);display:block;margin-bottom:4px">' + reasonLabel + '</label>'
+        +   '<textarea id="cm-reason" rows="3" style="width:100%;padding:8px;border:1px solid var(--grey-mid);border-radius:6px;font-family:inherit;font-size:13px;resize:vertical" placeholder="Type a reason..."></textarea>'
+        + '</div>'
+        : '';
+
+    var html =
+        '<div style="padding:4px 2px">'
+      +   '<h3 style="margin:0 0 8px;font-size:17px;display:flex;align-items:center;gap:8px">'
+      +     '<i class="fas fa-circle-question" style="color:var(--blue)"></i> ' + title
+      +   '</h3>'
+      +   '<p style="margin:0;color:var(--muted);font-size:14px;line-height:1.5">' + message + '</p>'
+      +   reasonHtml
+      +   '<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:18px">'
+      +     '<button class="btn btn-outline btn-sm" id="cm-cancel">Cancel</button>'
+      +     '<button class="btn ' + confirmClass + ' btn-sm" id="cm-confirm">' + confirmText + '</button>'
+      +   '</div>'
+      + '</div>';
+
+    openModal(html);
+
+    var cancelBtn  = document.getElementById('cm-cancel');
+    var confirmBtn = document.getElementById('cm-confirm');
+    if (cancelBtn)  cancelBtn.onclick  = function(){ closeModal(); };
+    if (confirmBtn) confirmBtn.onclick = function(){
+        var reason = withReason ? (document.getElementById('cm-reason').value || '') : null;
+        closeModal();
+        onConfirm(reason);
+    };
+}
+
+function approveRecord(dataId, endpoint, rowEl) {
+    confirmModal({
+        title: 'Approve Submission',
+        message: 'Approve this submission? Approving may auto-complete the lecturer\'s matching KPI tasks.',
+        confirmText: 'Approve',
+        confirmClass: 'btn-success'
+    }, function() {
+        fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ data_id: dataId, action: 'approve' })
+        })
+        .then(r => r.json())
+        .then(res => {
+            if (res.success) {
+                showToast('Record approved successfully.', 'success');
+                if (rowEl) { rowEl.style.opacity = '.4'; setTimeout(() => rowEl.remove(), 400); }
+            } else { showToast(res.message, 'error'); }
+        })
+        .catch(function(){ showToast('Error approving record.', 'error'); });
+    });
+}
+
+function rejectRecord(dataId, endpoint, rowEl) {
+    confirmModal({
+        title: 'Reject Submission',
+        message: 'Reject this submission? The lecturer will be notified.',
+        confirmText: 'Reject',
+        confirmClass: 'btn-danger',
+        withReason: true,
+        reasonLabel: 'Reason for rejection (optional):'
+    }, function(reason) {
+        fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ data_id: dataId, action: 'reject', remarks: reason || '' })
+        })
+        .then(r => r.json())
+        .then(res => {
+            if (res.success) {
+                showToast('Record rejected. Lecturer will be notified.', 'error');
+                if (rowEl) { rowEl.style.opacity = '.4'; setTimeout(() => rowEl.remove(), 400); }
+            } else { showToast(res.message, 'error'); }
+        })
+        .catch(function(){ showToast('Error rejecting record.', 'error'); });
+    });
 }

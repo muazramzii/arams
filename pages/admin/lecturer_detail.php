@@ -1,6 +1,6 @@
 <?php
 // ============================================================
-//  ARAMS — Admin: Lecturer Detail View (with charts)
+//  ARAMS — Admin: Lecturer Detail View (with charts + inline edit)
 // ============================================================
 $pageTitle  = 'Lecturer Detail';
 $activePage = 'lecturers';
@@ -96,6 +96,15 @@ $awards = $db->prepare(
 );
 $awards->execute([$lecId]); $awards = $awards->fetchAll();
 
+// ── IP Records ────────────────────────────────────────────
+$ips = $db->prepare(
+    "SELECT i.*, rd.status FROM Tbl_IP_Record i
+     JOIN Tbl_Research_Data rd ON i.data_id = rd.data_id
+     WHERE rd.lecturer_id = ? AND rd.status = 'Approved'
+     ORDER BY i.filing_date DESC"
+);
+$ips->execute([$lecId]); $ips = $ips->fetchAll();
+
 // ── H-Index history ───────────────────────────────────────
 $hindexes = $db->prepare(
     "SELECT h.* FROM Tbl_HIndex h
@@ -118,6 +127,12 @@ $pubTypeColors   = ['#0B3C5D','#1B998B','#3b82f6','#8b5cf6','#f59e0b','#ef4444',
 $grantCatColors  = ['#0B3C5D','#1B998B','#3b82f6','#f59e0b','#8b5cf6','#ef4444','#22c55e'];
 $grantRoleColors = ['#0B3C5D','#1B998B','#f59e0b'];
 
+// ── Allowed ENUM values (match DB schema) ─────────────────
+$PUB_TYPES   = ['Journal Article','Conference Paper','Book','Book Chapter','Patent','Report','Others'];
+$GRANT_CATS  = ['FRGS','PRGS','TRGS','UTHM Internal (VoT)','Industry','Consultancy','International','Others'];
+$IP_TYPES    = ['Patent','Copyright','Trademark','Industrial Design','Trade Secret','Others'];
+$RGC_OPTS    = ['','CoE','CoR','Focus Group'];
+
 // ── Photo ─────────────────────────────────────────────────
 $photo    = $lec['profile_photo'] ?? '';
 $photoUrl = ($photo && file_exists(__DIR__ . '/../../assets/images/profiles/' . $photo))
@@ -126,7 +141,22 @@ $photoUrl = ($photo && file_exists(__DIR__ . '/../../assets/images/profiles/' . 
 $initials = strtoupper(substr($lec['full_name'], 0, 2));
 ?>
 
-<!-- Back button -->
+<!-- ── ADMIN INLINE EDIT STYLES ──────────────────────── -->
+<style>
+.edit-only,.edit-only-block{display:none}
+body.edit-mode .edit-only{display:inline-block}
+body.edit-mode .edit-only-block{display:block}
+body.edit-mode .view-only{display:none}
+.inline-select{padding:4px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:#fff;max-width:100%}
+.inline-input{padding:4px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;width:140px}
+.save-pill{cursor:pointer;background:var(--blue);color:#fff;border:none;border-radius:6px;padding:4px 10px;font-size:11px;font-weight:600}
+.save-pill:hover{opacity:.9}
+.save-pill:disabled{opacity:.6;cursor:default}
+.saved-tick{color:var(--green);font-weight:700;font-size:12px;margin-left:6px;display:none}
+.edit-row{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:6px}
+</style>
+
+<!-- Back button + Edit Mode -->
 <div style="margin-bottom:1rem;display:flex;gap:.75rem;flex-wrap:wrap">
     <a href="/arams/pages/admin/lecturers.php" class="btn btn-outline btn-sm">
         <i class="fas fa-arrow-left"></i> Back to All Lecturers
@@ -135,6 +165,11 @@ $initials = strtoupper(substr($lec['full_name'], 0, 2));
        class="btn btn-primary btn-sm">
         <i class="fas fa-file-alt"></i> Generate Performance Report
     </a>
+    <button id="editModeBtn" type="button" class="btn btn-sm"
+            style="background:var(--teal);color:#fff"
+            onclick="toggleEditMode()">
+        <i class="fas fa-pen"></i> <span id="editModeLabel">Edit Mode</span>
+    </button>
 </div>
 
 <!-- ── PROFILE HEADER ─────────────────────────────────── -->
@@ -169,6 +204,9 @@ $initials = strtoupper(substr($lec['full_name'], 0, 2));
                 <?php endif; ?>
                 <?php if ($lec['research_centre']): ?>
                 <span class="badge badge-teal"><?= htmlspecialchars($lec['research_centre']) ?></span>
+                <?php endif; ?>
+                <?php if (!empty($lec['managerial_position'])): ?>
+                <span class="badge badge-purple">Managerial</span>
                 <?php endif; ?>
             </div>
             <!-- Research IDs -->
@@ -215,6 +253,42 @@ $initials = strtoupper(substr($lec['full_name'], 0, 2));
             <div style="color:var(--muted);font-size:11px">Staff No</div>
             <div style="font-weight:600"><?= htmlspecialchars($lec['staff_no']) ?></div>
         </div>
+    </div>
+</div>
+
+<!-- ── EDIT PANEL: Profile Fields (admin only) ────────── -->
+<div class="card edit-only-block" id="profileEditPanel"
+     style="margin-bottom:1rem;border:2px dashed var(--teal)">
+    <div class="card-title"><i class="fas fa-pen" style="color:var(--teal)"></i> Edit Profile Fields</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">
+        <label style="font-size:12px">Research Centre
+            <input id="ef_rc" class="inline-input" style="width:100%"
+                   value="<?= htmlspecialchars($lec['research_centre'] ?? '') ?>">
+        </label>
+        <label style="font-size:12px">Research Group Category
+            <select id="ef_rgc" class="inline-select" style="width:100%">
+                <?php $cur = $lec['research_group_category'] ?? '';
+                $opts = $RGC_OPTS;
+                if ($cur && !in_array($cur, $opts, true)) $opts[] = $cur;
+                foreach ($opts as $o): ?>
+                <option value="<?= htmlspecialchars($o) ?>" <?= $o === $cur ? 'selected' : '' ?>>
+                    <?= $o === '' ? '— none —' : htmlspecialchars($o) ?>
+                </option>
+                <?php endforeach; ?>
+            </select>
+        </label>
+        <label style="font-size:12px">Status Researcher
+            <input id="ef_sr" class="inline-input" style="width:100%"
+                   value="<?= htmlspecialchars($lec['status_researcher'] ?? '') ?>">
+        </label>
+        <label style="font-size:12px;display:flex;align-items:center;gap:8px;margin-top:18px">
+            <input type="checkbox" id="ef_mp" <?= !empty($lec['managerial_position']) ? 'checked' : '' ?>>
+            Holds Managerial Position
+        </label>
+    </div>
+    <div style="margin-top:1rem">
+        <button class="save-pill" onclick="saveProfile()">Save Profile</button>
+        <span class="saved-tick" id="tick_profile">✓ Saved</span>
     </div>
 </div>
 
@@ -406,7 +480,7 @@ $initials = strtoupper(substr($lec['full_name'], 0, 2));
         <?php foreach (array_slice($publications, 0, 8) as $p): ?>
         <div class="pub-card">
             <div style="display:flex;gap:6px;margin-bottom:4px;flex-wrap:wrap">
-                <span class="badge badge-blue"><?= htmlspecialchars($p['pub_type']) ?></span>
+                <span class="view-only badge badge-blue"><?= htmlspecialchars($p['pub_type']) ?></span>
                 <span class="badge badge-teal"><?= htmlspecialchars($p['indexing_type']) ?></span>
                 <?php if ($p['quartile'] !== 'N/A'): ?>
                 <span class="badge badge-purple"><?= $p['quartile'] ?></span>
@@ -422,6 +496,17 @@ $initials = strtoupper(substr($lec['full_name'], 0, 2));
                 • <a href="https://doi.org/<?= htmlspecialchars($p['doi']) ?>"
                      target="_blank" style="color:var(--teal)">DOI ↗</a>
                 <?php endif; ?>
+            </div>
+            <!-- inline edit: pub_type -->
+            <div class="edit-row edit-only">
+                <span style="font-size:11px;color:var(--muted)">Type:</span>
+                <select class="inline-select" data-pubid="<?= $p['publication_id'] ?>">
+                    <?php foreach ($PUB_TYPES as $o): ?>
+                    <option value="<?= $o ?>" <?= $o === $p['pub_type'] ? 'selected' : '' ?>><?= $o ?></option>
+                    <?php endforeach; ?>
+                </select>
+                <button class="save-pill" onclick="savePub(this,<?= $p['publication_id'] ?>)">Save</button>
+                <span class="saved-tick" id="tick_pub_<?= $p['publication_id'] ?>">✓</span>
             </div>
         </div>
         <?php endforeach; ?>
@@ -459,6 +544,22 @@ $initials = strtoupper(substr($lec['full_name'], 0, 2));
                     <?php endif; ?>
                     <span class="badge <?= $g['status']==='Active' ? 'badge-green' : 'badge-grey' ?>"
                           style="font-size:10px"><?= $g['status'] ?></span>
+                </div>
+                <!-- inline edit: funder / grant_level / grant_category -->
+                <div class="edit-row edit-only">
+                    <input class="inline-input" style="width:120px" placeholder="Funder"
+                           data-grantfunder="<?= $g['grant_id'] ?>"
+                           value="<?= htmlspecialchars($g['funder'] ?? '') ?>">
+                    <input class="inline-input" style="width:90px" placeholder="Level"
+                           data-grantlevel="<?= $g['grant_id'] ?>"
+                           value="<?= htmlspecialchars($g['grant_level'] ?? '') ?>">
+                    <select class="inline-select" data-grantcat="<?= $g['grant_id'] ?>">
+                        <?php foreach ($GRANT_CATS as $o): ?>
+                        <option value="<?= $o ?>" <?= $o === $g['grant_category'] ? 'selected' : '' ?>><?= $o ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                    <button class="save-pill" onclick="saveGrant(this,<?= $g['grant_id'] ?>)">Save</button>
+                    <span class="saved-tick" id="tick_grant_<?= $g['grant_id'] ?>">✓</span>
                 </div>
             </div>
             <?php endforeach; ?>
@@ -518,6 +619,38 @@ $initials = strtoupper(substr($lec['full_name'], 0, 2));
     </div>
 </div>
 
+<!-- ── IP RECORDS ─────────────────────────────────────── -->
+<div class="card" style="margin-bottom:1rem">
+    <div class="card-title">
+        <i class="fas fa-lightbulb" style="color:#f59e0b"></i>
+        Intellectual Property (<?= count($ips) ?>)
+    </div>
+    <?php if (empty($ips)): ?>
+    <p style="color:var(--muted);font-size:13px">No approved IP records.</p>
+    <?php else: ?>
+    <?php foreach ($ips as $ip): ?>
+    <div style="padding:8px 0;border-bottom:1px solid var(--border);font-size:13px">
+        <div style="font-weight:600;margin-bottom:3px">
+            <?= htmlspecialchars(substr($ip['ip_title'],0,70)) ?><?= strlen($ip['ip_title'])>70?'…':'' ?>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;font-size:12px;color:var(--muted)">
+            <span style="font-weight:600">Type of Patent:</span>
+            <span class="view-only badge badge-purple"><?= htmlspecialchars($ip['ip_type']) ?></span>
+            <select class="edit-only inline-select" data-ipid="<?= $ip['ip_id'] ?>">
+                <?php foreach ($IP_TYPES as $o): ?>
+                <option value="<?= $o ?>" <?= $o === $ip['ip_type'] ? 'selected' : '' ?>><?= $o ?></option>
+                <?php endforeach; ?>
+            </select>
+            <?php if ($ip['ip_number']): ?><span><?= htmlspecialchars($ip['ip_number']) ?></span><?php endif; ?>
+            <span class="badge badge-green"><?= htmlspecialchars($ip['registration_status']) ?></span>
+            <button class="save-pill edit-only" onclick="saveIp(this,<?= $ip['ip_id'] ?>)">Save</button>
+            <span class="saved-tick" id="tick_ip_<?= $ip['ip_id'] ?>">✓</span>
+        </div>
+    </div>
+    <?php endforeach; ?>
+    <?php endif; ?>
+</div>
+
 <!-- ── CHARTS JS ──────────────────────────────────────── -->
 <script>
 document.addEventListener('DOMContentLoaded', function () {
@@ -564,6 +697,52 @@ document.addEventListener('DOMContentLoaded', function () {
     ]);
     <?php endif; ?>
 });
+
+// ── ADMIN INLINE EDIT LOGIC ─────────────────────────────
+const LEC_ID = <?= $lecId ?>;
+const API = '/arams/api/update_lecturer_admin.php';
+
+function toggleEditMode(){
+    document.body.classList.toggle('edit-mode');
+    const on = document.body.classList.contains('edit-mode');
+    document.getElementById('editModeLabel').textContent = on ? 'Exit Edit Mode' : 'Edit Mode';
+}
+async function post(payload, tickId, btn){
+    const orig = btn ? btn.textContent : '';
+    if(btn){ btn.disabled = true; btn.textContent = 'Saving…'; }
+    try{
+        const r = await fetch(API, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
+        const d = await r.json();
+        if(d.success){
+            const t = document.getElementById(tickId);
+            if(t){ t.style.display='inline'; setTimeout(()=>t.style.display='none', 1800); }
+        } else { alert('Error: ' + (d.message || 'failed')); }
+    }catch(e){ alert('Request failed: ' + e.message); }
+    if(btn){ btn.disabled = false; btn.textContent = orig || 'Save'; }
+}
+function saveProfile(){
+    post({type:'profile', id:LEC_ID,
+        research_centre: document.getElementById('ef_rc').value,
+        research_group_category: document.getElementById('ef_rgc').value,
+        status_researcher: document.getElementById('ef_sr').value,
+        managerial_position: document.getElementById('ef_mp').checked
+    }, 'tick_profile', document.querySelector('#profileEditPanel .save-pill'));
+}
+function savePub(btn, id){
+    const sel = document.querySelector('select[data-pubid="'+id+'"]');
+    post({type:'publication', id:id, pub_type: sel.value}, 'tick_pub_'+id, btn);
+}
+function saveGrant(btn, id){
+    post({type:'grant', id:id,
+        funder: document.querySelector('input[data-grantfunder="'+id+'"]').value,
+        grant_level: document.querySelector('input[data-grantlevel="'+id+'"]').value,
+        grant_category: document.querySelector('select[data-grantcat="'+id+'"]').value
+    }, 'tick_grant_'+id, btn);
+}
+function saveIp(btn, id){
+    const sel = document.querySelector('select[data-ipid="'+id+'"]');
+    post({type:'ip', id:id, ip_type: sel.value}, 'tick_ip_'+id, btn);
+}
 </script>
 
-<?php require_once __DIR__ . '/../../includes/footer.php'; ?>
+<?php require_once __DIR__ . '/../../includes/footer.php'; ?> 

@@ -392,14 +392,78 @@ document.addEventListener('DOMContentLoaded', function () {
     ]);
     <?php endif; ?>
 
-    // Attach donut legend clicks after render
+    // Attach donut hover tooltips + legend clicks after render
     setTimeout(function() {
+        ['quartileDonut','pubTypeDonut','grantCatDonut','grantRoleDonut'].forEach(function(id){
+            attachDonutHovers(id);
+        });
         attachDonutClicks('quartileDonut', 'quartile');
         attachDonutClicks('pubTypeDonut',  'pubtype');
         attachDonutClicks('grantCatDonut', 'grantcat');
         attachDonutClicks('grantRoleDonut','grantrole');
     }, 300);
 });
+
+// ── Hover tooltips on donut segments ───────────────────────────────────
+// Matches each SVG segment to its legend entry by stroke colour, then shows
+// a floating tooltip (e.g. "Q3 19") and thickens the segment on hover.
+function attachDonutHovers(donutId) {
+    var d = document.getElementById(donutId);
+    if (!d) return;
+    var svg = d.querySelector('svg');
+    if (!svg) return;
+
+    // shared tooltip element (created once)
+    var tip = document.getElementById('donutTip');
+    if (!tip) {
+        tip = document.createElement('div');
+        tip.id = 'donutTip';
+        tip.style.cssText = 'position:fixed;z-index:9999;pointer-events:none;background:#0f172a;'
+            + 'color:#fff;padding:6px 10px;border-radius:6px;font-size:12px;font-weight:600;'
+            + 'box-shadow:0 4px 12px rgba(0,0,0,.25);display:none;white-space:nowrap';
+        document.body.appendChild(tip);
+    }
+
+    // build colour -> "label value" map from the legend
+    var map = {};
+    d.querySelectorAll('.legend-item').forEach(function(li){
+        var sw = li.querySelector('[style*="background"]');
+        if (!sw) return;
+        var m = (sw.getAttribute('style') || '').match(/background:\s*([^;]+)/);
+        if (m) map[m[1].trim().toLowerCase()] = li.textContent.replace(/\s+/g,' ').trim();
+    });
+
+    svg.querySelectorAll('circle').forEach(function(c){
+        var stroke = (c.getAttribute('stroke') || '').toLowerCase();
+        var label = map[stroke];
+        if (!label) return;                 // skip the grey track circle
+        var baseW = c.getAttribute('stroke-width');
+        c.style.cursor = 'pointer';
+        c.style.transition = 'stroke-width .15s';
+        c.addEventListener('mouseenter', function(){
+            tip.textContent = label;
+            tip.style.display = 'block';
+            c.setAttribute('stroke-width', (parseFloat(baseW) + 4));
+        });
+        c.addEventListener('mousemove', function(e){
+            tip.style.left = (e.clientX + 14) + 'px';
+            tip.style.top  = (e.clientY - 10) + 'px';
+        });
+        c.addEventListener('mouseleave', function(){
+            tip.style.display = 'none';
+            c.setAttribute('stroke-width', baseW);
+        });
+    });
+}
+
+// Tells the front-end whether we are an Admin (institution-wide) view.
+// For non-admins the API is already scoped to one faculty/self, so the
+// faculty layer is skipped automatically (API returns mode:"records").
+var ARAMS_IS_ADMIN = <?= $isAdmin ? 'true' : 'false' ?>;
+
+// Remember the current selection so the "Back" button can re-open the
+// faculty list without re-clicking the chart.
+var drillState = { type:'', value:'' };
 
 function attachDonutClicks(donutId, filterType) {
     var container = document.getElementById(donutId);
@@ -421,61 +485,169 @@ function attachDonutClicks(donutId, filterType) {
     });
 }
 
+// ── Entry point: a chart segment was clicked ───────────────────────────
+// Admin  -> show the faculty breakdown first.
+// Others -> API is scoped, so it returns records directly.
 function drillDown(type, value) {
+    drillState.type = type;
+    drillState.value = value;
+
     var panel = document.getElementById('detailPanel');
     var body  = document.getElementById('detailBody');
-    var head  = document.getElementById('detailHead');
     document.getElementById('detailTitle').textContent = 'Loading...';
     document.getElementById('detailCount').textContent = '';
-    body.innerHTML = '<tr><td style="padding:1.5rem;text-align:center;color:var(--muted)">Loading records...</td></tr>';
+    body.innerHTML = '<tr><td style="padding:1.5rem;text-align:center;color:var(--muted)">Loading...</td></tr>';
     panel.style.display = 'block';
     panel.scrollIntoView({ behavior:'smooth', block:'start' });
 
+    // No faculty_id yet → API decides: Admin gets a faculty summary,
+    // TDPP/Lecturer get records directly.
     fetch('/arams/api/analytics_detail.php?type=' + encodeURIComponent(type) + '&value=' + encodeURIComponent(value))
         .then(r => r.json())
         .then(res => {
-            if (!res.success) { body.innerHTML = '<tr><td style="padding:1rem;color:var(--muted)">' + (res.message||'No data') + '</td></tr>'; return; }
-            document.getElementById('detailTitle').textContent = res.title;
-            document.getElementById('detailCount').textContent = '(' + res.count + ' record' + (res.count!=1?'s':'') + ')';
-
-            if (res.count === 0) {
-                head.innerHTML = '';
-                body.innerHTML = '<tr><td style="padding:1.5rem;text-align:center;color:var(--muted)">No records found for this selection.</td></tr>';
-                return;
-            }
-
-            if (res.kind === 'publication') {
-                head.innerHTML = '<tr><th>Title</th><th>Authors</th><th>Journal</th><th>Year</th><th>Quartile</th><th>Indexing</th><th>Status</th></tr>';
-                body.innerHTML = res.rows.map(function(r){
-                    return '<tr>' +
-                        '<td style="font-weight:600;font-size:12px;max-width:260px">' + esc(r.title) + '</td>' +
-                        '<td style="font-size:11px;color:var(--muted);max-width:180px">' + esc(r.authors) + '</td>' +
-                        '<td style="font-size:11px">' + esc(r.journal_name) + '</td>' +
-                        '<td>' + esc(r.pub_year) + '</td>' +
-                        '<td><span class="badge badge-blue" style="font-size:10px">' + esc(r.quartile) + '</span></td>' +
-                        '<td style="font-size:11px">' + esc(r.indexing_type) + '</td>' +
-                        '<td><span class="badge badge-green" style="font-size:10px">' + esc(r.status) + '</span></td>' +
-                        '</tr>';
-                }).join('');
-            } else {
-                head.innerHTML = '<tr><th>Grant Title</th><th>Code</th><th>Funder</th><th>Category</th><th>Level</th><th>Role</th><th>Amount</th><th>Status</th></tr>';
-                body.innerHTML = res.rows.map(function(r){
-                    return '<tr>' +
-                        '<td style="font-weight:600;font-size:12px;max-width:240px">' + esc(r.grant_title) + '</td>' +
-                        '<td style="font-size:11px">' + esc(r.grant_code) + '</td>' +
-                        '<td style="font-size:11px">' + esc(r.funder) + '</td>' +
-                        '<td style="font-size:11px">' + esc(r.grant_category) + '</td>' +
-                        '<td><span class="badge badge-grey" style="font-size:10px">' + esc(r.grant_level) + '</span></td>' +
-                        '<td><span class="badge badge-blue" style="font-size:10px">' + esc(r.role) + '</span></td>' +
-                        '<td style="font-size:11px">RM ' + Number(r.amount||0).toLocaleString() + '</td>' +
-                        '<td><span class="badge badge-green" style="font-size:10px">' + esc(r.status) + '</span></td>' +
-                        '</tr>';
-                }).join('');
-            }
+            if (!res.success) { showDrillError(res.message); return; }
+            if (res.mode === 'faculty') { renderFacultyList(res); }
+            else { renderRecords(res); }
         })
-        .catch(function(){ body.innerHTML = '<tr><td style="padding:1rem;color:#dc2626">Error loading records.</td></tr>'; });
+        .catch(function(){ showDrillError('Error loading data.'); });
 }
-function closeDrill() { document.getElementById('detailPanel').style.display = 'none'; }
+
+// ── Level 1: faculty breakdown (Admin) ─────────────────────────────────
+function renderFacultyList(res) {
+    var head = document.getElementById('detailHead');
+    var body = document.getElementById('detailBody');
+
+    document.getElementById('detailTitle').textContent = res.title + ' — by Faculty';
+    document.getElementById('detailCount').textContent =
+        '(' + res.total + ' record' + (res.total!=1?'s':'') + ' across ' + res.faculties.length + ' facult' + (res.faculties.length!=1?'ies':'y') + ')';
+
+    if (!res.faculties.length) {
+        head.innerHTML = '';
+        body.innerHTML = '<tr><td style="padding:1.5rem;text-align:center;color:var(--muted)">No records found.</td></tr>';
+        return;
+    }
+
+    head.innerHTML = '<tr><th>Faculty</th><th>Records</th><th style="width:40%">Share</th><th></th></tr>';
+    var max = res.faculties[0].cnt || 1;
+    body.innerHTML = res.faculties.map(function(f){
+        var pct = Math.round((f.cnt / max) * 100);
+        return '<tr class="fac-row" style="cursor:pointer" ' +
+                'onclick="drillFaculty(' + f.faculty_id + ', \'' + esc(f.faculty_name).replace(/\'/g,"") + '\')" ' +
+                'title="Click to see lecturers & records in ' + esc(f.faculty_name) + '">' +
+            '<td style="font-weight:600">' +
+                '<span class="badge badge-grey" style="font-size:10px;margin-right:6px">' + esc(f.faculty_code) + '</span>' +
+                esc(f.faculty_name) + '</td>' +
+            '<td style="font-weight:700">' + f.cnt + '</td>' +
+            '<td><div style="height:7px;background:var(--grey-mid);border-radius:4px;overflow:hidden">' +
+                '<div style="width:' + pct + '%;height:100%;border-radius:4px;background:linear-gradient(90deg,var(--blue),var(--teal))"></div>' +
+                '</div></td>' +
+            '<td style="text-align:right;color:var(--muted)"><i class="fas fa-chevron-right"></i></td>' +
+            '</tr>';
+    }).join('');
+}
+
+// ── Level 2: click a faculty → fetch its records ───────────────────────
+function drillFaculty(facId, facName) {
+    var body = document.getElementById('detailBody');
+    document.getElementById('detailTitle').textContent = 'Loading ' + facName + '...';
+    document.getElementById('detailCount').textContent = '';
+    body.innerHTML = '<tr><td style="padding:1.5rem;text-align:center;color:var(--muted)">Loading records...</td></tr>';
+
+    fetch('/arams/api/analytics_detail.php?type=' + encodeURIComponent(drillState.type) +
+          '&value=' + encodeURIComponent(drillState.value) +
+          '&faculty_id=' + encodeURIComponent(facId))
+        .then(r => r.json())
+        .then(res => {
+            if (!res.success) { showDrillError(res.message); return; }
+            renderRecords(res, true);
+        })
+        .catch(function(){ showDrillError('Error loading records.'); });
+}
+
+// ── Render the record list (shared by all roles) ───────────────────────
+// showBack = true only when an Admin drilled into a faculty.
+function renderRecords(res, showBack) {
+    var head = document.getElementById('detailHead');
+    var body = document.getElementById('detailBody');
+
+    var backBtn = (showBack && ARAMS_IS_ADMIN)
+        ? '<button class="btn btn-outline btn-sm" style="margin-bottom:10px" onclick="drillDown(drillState.type, drillState.value)"><i class="fas fa-arrow-left"></i> Back to faculties</button>'
+        : '';
+    document.getElementById('detailTitle').innerHTML =
+        '<i class="fas fa-list" style="color:var(--teal)"></i> ' + esc(res.title);
+    document.getElementById('detailCount').textContent =
+        '(' + res.count + ' record' + (res.count!=1?'s':'') + ')';
+
+    // Inject/refresh the back button row above the table
+    var panel = document.getElementById('detailPanel');
+    var existing = document.getElementById('drillBackBar');
+    if (existing) existing.remove();
+    if (backBtn) {
+        var bar = document.createElement('div');
+        bar.id = 'drillBackBar';
+        bar.innerHTML = backBtn;
+        var wrap = panel.querySelector('.table-wrap');
+        panel.insertBefore(bar, wrap);
+    }
+
+    if (res.count === 0) {
+        head.innerHTML = '';
+        body.innerHTML = '<tr><td style="padding:1.5rem;text-align:center;color:var(--muted)">No records found for this selection.</td></tr>';
+        return;
+    }
+
+    // Whether the API gave us a lecturer column (it does in v2)
+    var hasLecturer = res.rows.length && (res.rows[0].lecturer_name !== undefined);
+    var lecHead = hasLecturer ? '<th>Lecturer</th>' : '';
+
+    if (res.kind === 'publication') {
+        head.innerHTML = '<tr>' + lecHead + '<th>Title</th><th>Authors</th><th>Journal</th><th>Year</th><th>Quartile</th><th>Indexing</th><th>Status</th></tr>';
+        body.innerHTML = res.rows.map(function(r){
+            var lecCell = hasLecturer
+                ? '<td style="font-size:11px;font-weight:600;white-space:nowrap">' + esc((r.lecturer_title? r.lecturer_title+' ':'') + r.lecturer_name) + '</td>'
+                : '';
+            return '<tr>' + lecCell +
+                '<td style="font-weight:600;font-size:12px;max-width:240px">' + esc(r.title) + '</td>' +
+                '<td style="font-size:11px;color:var(--muted);max-width:160px">' + esc(r.authors) + '</td>' +
+                '<td style="font-size:11px">' + esc(r.journal_name) + '</td>' +
+                '<td>' + esc(r.pub_year) + '</td>' +
+                '<td><span class="badge badge-blue" style="font-size:10px">' + esc(r.quartile) + '</span></td>' +
+                '<td style="font-size:11px">' + esc(r.indexing_type) + '</td>' +
+                '<td><span class="badge badge-green" style="font-size:10px">' + esc(r.status) + '</span></td>' +
+                '</tr>';
+        }).join('');
+    } else {
+        head.innerHTML = '<tr>' + lecHead + '<th>Grant Title</th><th>Code</th><th>Funder</th><th>Category</th><th>Level</th><th>Role</th><th>Amount</th><th>Status</th></tr>';
+        body.innerHTML = res.rows.map(function(r){
+            var lecCell = hasLecturer
+                ? '<td style="font-size:11px;font-weight:600;white-space:nowrap">' + esc((r.lecturer_title? r.lecturer_title+' ':'') + r.lecturer_name) + '</td>'
+                : '';
+            return '<tr>' + lecCell +
+                '<td style="font-weight:600;font-size:12px;max-width:220px">' + esc(r.grant_title) + '</td>' +
+                '<td style="font-size:11px">' + esc(r.grant_code) + '</td>' +
+                '<td style="font-size:11px">' + esc(r.funder) + '</td>' +
+                '<td style="font-size:11px">' + esc(r.grant_category) + '</td>' +
+                '<td><span class="badge badge-grey" style="font-size:10px">' + esc(r.grant_level) + '</span></td>' +
+                '<td><span class="badge badge-blue" style="font-size:10px">' + esc(r.role) + '</span></td>' +
+                '<td style="font-size:11px">RM ' + Number(r.amount||0).toLocaleString() + '</td>' +
+                '<td><span class="badge badge-green" style="font-size:10px">' + esc(r.status) + '</span></td>' +
+                '</tr>';
+        }).join('');
+    }
+}
+
+function showDrillError(msg) {
+    document.getElementById('detailHead').innerHTML = '';
+    document.getElementById('detailBody').innerHTML =
+        '<tr><td style="padding:1rem;color:#dc2626">' + esc(msg || 'No data') + '</td></tr>';
+}
+
+function closeDrill() {
+    document.getElementById('detailPanel').style.display = 'none';
+    var bar = document.getElementById('drillBackBar');
+    if (bar) bar.remove();
+}
+
 function esc(s) { if (s===null||s===undefined) return '—'; return String(s).replace(/[&<>"]/g, function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
 </script>
 

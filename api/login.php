@@ -58,9 +58,16 @@ $_SESSION['admin_id']      = $user['admin_id'];
 $_SESSION['faculty']       = $user['faculty_name'] ?? '';
 $_SESSION['profile_photo'] = $user['profile_photo'] ?? '';
 
-$redirect = $user['role'] === 'Admin'
-    ? '/arams/pages/admin/dashboard.php'
-    : '/arams/pages/lecturer/dashboard.php';
+switch ($user['role']) {
+    case 'Admin':
+        $redirect = '/arams/pages/admin/dashboard.php';
+        break;
+    case 'TDPP':
+        $redirect = '/arams/pages/tdpp/dashboard.php';
+        break;
+    default:
+        $redirect = '/arams/pages/lecturer/dashboard.php';
+}
 
 header('Location: ' . $redirect);
 exit;

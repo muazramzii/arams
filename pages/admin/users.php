@@ -7,13 +7,15 @@ $db = getDB();
 
 $users = $db->query(
     "SELECT u.user_id, u.email, u.role, u.is_active, u.created_at, u.last_login,
-            COALESCE(l.full_name, a.name) AS full_name,
-            COALESCE(f.faculty_code, 'Admin') AS faculty_code,
+            COALESCE(l.full_name, a.name, t.full_name) AS full_name,
+            COALESCE(f.faculty_code, ft.faculty_code, 'Admin') AS faculty_code,
             l.staff_no, l.lecturer_id
      FROM Tbl_User u
-     LEFT JOIN Tbl_Lecturer l ON l.user_id = u.user_id
-     LEFT JOIN Tbl_Admin    a ON a.user_id = u.user_id
-     LEFT JOIN Tbl_Faculty  f ON f.faculty_id = l.faculty_id
+     LEFT JOIN Tbl_Lecturer l  ON l.user_id  = u.user_id
+     LEFT JOIN Tbl_Admin    a  ON a.user_id  = u.user_id
+     LEFT JOIN Tbl_TDPP     t  ON t.user_id  = u.user_id
+     LEFT JOIN Tbl_Faculty  f  ON f.faculty_id  = l.faculty_id
+     LEFT JOIN Tbl_Faculty  ft ON ft.faculty_id = t.faculty_id
      ORDER BY u.role DESC, u.created_at ASC"
 )->fetchAll();
 
@@ -25,7 +27,7 @@ $faculties = $db->query(
 <div class="page-header-row">
     <div class="page-header" style="margin:0">
         <h1>User Management</h1>
-        <p>Manage all system accounts — lecturers and admins</p>
+        <p>Manage all system accounts — lecturers, TDPP, and admins</p>
     </div>
     <button class="btn btn-teal" onclick="openCreateUserModal()">
         <i class="fas fa-user-plus"></i> Add User
@@ -38,6 +40,7 @@ $faculties = $db->query(
     <select class="filter-select" onchange="filterBySelect(this,'userTable',2)">
         <option value="">All Roles</option>
         <option>Lecturer</option>
+        <option>TDPP</option>
         <option>Admin</option>
     </select>
 </div>
@@ -51,12 +54,21 @@ $faculties = $db->query(
             </tr></thead>
             <tbody>
             <?php foreach ($users as $i => $u): ?>
+            <?php
+                // avatar/badge colour per role
+                $avatarColor = $u['role']==='Admin' ? 'var(--blue)'
+                             : ($u['role']==='TDPP' ? '#8b5cf6' : 'var(--teal)');
+                $roleBadge   = $u['role']==='Admin' ? 'badge-blue'
+                             : ($u['role']==='TDPP' ? 'badge-purple' : 'badge-teal');
+                $roleIcon    = $u['role']==='Admin' ? 'shield-alt'
+                             : ($u['role']==='TDPP' ? 'user-check' : 'graduation-cap');
+            ?>
             <tr id="urow-<?= $u['user_id'] ?>">
                 <td style="color:var(--muted);font-size:12px"><?= $i+1 ?></td>
                 <td>
                     <div style="display:flex;align-items:center;gap:9px">
                         <div style="width:32px;height:32px;border-radius:50%;
-                                    background:<?= $u['role']==='Admin'?'var(--blue)':'var(--teal)' ?>;
+                                    background:<?= $avatarColor ?>;
                                     display:flex;align-items:center;justify-content:center;
                                     color:#fff;font-size:11px;font-weight:700;flex-shrink:0">
                             <?= strtoupper(substr($u['full_name']??'?',0,2)) ?>
@@ -70,9 +82,8 @@ $faculties = $db->query(
                     </div>
                 </td>
                 <td>
-                    <span class="badge <?= $u['role']==='Admin'?'badge-blue':'badge-teal' ?>">
-                        <i class="fas fa-<?= $u['role']==='Admin'?'shield-alt':'graduation-cap' ?>"
-                           style="font-size:10px;margin-right:3px"></i>
+                    <span class="badge <?= $roleBadge ?>">
+                        <i class="fas fa-<?= $roleIcon ?>" style="font-size:10px;margin-right:3px"></i>
                         <?= $u['role'] ?>
                     </span>
                 </td>
@@ -87,6 +98,11 @@ $faculties = $db->query(
                     <?= $u['last_login'] ? date('d M Y',strtotime($u['last_login'])) : 'Never' ?>
                 </td>
                 <td>
+                    <?php if ($u['role'] === 'TDPP'): ?>
+                        <span class="badge badge-grey" style="font-size:11px">
+                            <i class="fas fa-eye" style="font-size:10px;margin-right:3px"></i> View only
+                        </span>
+                    <?php else: ?>
                     <div style="display:flex;gap:5px">
                         <button class="btn btn-outline btn-sm"
                                 onclick="openEditUserModal(
@@ -102,6 +118,7 @@ $faculties = $db->query(
                                 onclick="toggleUserStatus(<?= $u['user_id'] ?>,1)">Activate</button>
                         <?php endif; ?>
                     </div>
+                    <?php endif; ?>
                 </td>
             </tr>
             <?php endforeach; ?>
@@ -116,11 +133,13 @@ $faculties = $db->query(
     $total    = count($users);
     $active   = count(array_filter($users, fn($u) => $u['is_active']));
     $lecCount = count(array_filter($users, fn($u) => $u['role']==='Lecturer'));
+    $tdppCount= count(array_filter($users, fn($u) => $u['role']==='TDPP'));
     $admCount = count(array_filter($users, fn($u) => $u['role']==='Admin'));
     ?>
     <div class="stat-item"><span>Total Users</span><strong><?= $total ?></strong></div>
     <div class="stat-item"><span>Active</span><strong><?= $active ?></strong></div>
     <div class="stat-item"><span>Lecturers</span><strong><?= $lecCount ?></strong></div>
+    <div class="stat-item"><span>TDPP</span><strong><?= $tdppCount ?></strong></div>
     <div class="stat-item"><span>Admins</span><strong><?= $admCount ?></strong></div>
 </div>
 

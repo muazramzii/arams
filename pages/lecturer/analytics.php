@@ -394,6 +394,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Attach donut legend clicks after render
     setTimeout(function() {
+        ['quartileDonut','pubTypeDonut','grantCatDonut','grantRoleDonut'].forEach(function(id){
+            attachDonutHovers(id);
+        });
         attachDonutClicks('quartileDonut', 'quartile');
         attachDonutClicks('pubTypeDonut',  'pubtype');
         attachDonutClicks('grantCatDonut', 'grantcat');
@@ -418,6 +421,35 @@ function attachDonutClicks(donutId, filterType) {
             }
             if (label) drillDown(filterType, label);
         });
+    });
+}
+function attachDonutHovers(donutId) {
+    var d = document.getElementById(donutId);
+    if (!d) return;
+    var svg = d.querySelector('svg'); if (!svg) return;
+    var tip = document.getElementById('donutTip');
+    if (!tip) {
+        tip = document.createElement('div');
+        tip.id = 'donutTip';
+        tip.style.cssText = 'position:fixed;z-index:9999;pointer-events:none;background:#0f172a;color:#fff;padding:6px 10px;border-radius:6px;font-size:12px;font-weight:600;box-shadow:0 4px 12px rgba(0,0,0,.25);display:none;white-space:nowrap';
+        document.body.appendChild(tip);
+    }
+    var map = {};
+    d.querySelectorAll('.legend-item').forEach(function(li){
+        var sw = li.querySelector('[style*="background"]');
+        if (!sw) return;
+        var m = (sw.getAttribute('style') || '').match(/background:\s*([^;]+)/);
+        if (m) map[m[1].trim().toLowerCase()] = li.textContent.replace(/\s+/g,' ').trim();
+    });
+    svg.querySelectorAll('circle').forEach(function(c){
+        var stroke = (c.getAttribute('stroke') || '').toLowerCase();
+        var label = map[stroke]; if (!label) return;
+        var baseW = c.getAttribute('stroke-width');
+        c.style.cursor = 'pointer';
+        c.style.transition = 'stroke-width .15s';
+        c.addEventListener('mouseenter', function(){ tip.textContent = label; tip.style.display='block'; c.setAttribute('stroke-width',(parseFloat(baseW)+4)); });
+        c.addEventListener('mousemove', function(e){ tip.style.left=(e.clientX+14)+'px'; tip.style.top=(e.clientY-10)+'px'; });
+        c.addEventListener('mouseleave', function(){ tip.style.display='none'; c.setAttribute('stroke-width',baseW); });
     });
 }
 

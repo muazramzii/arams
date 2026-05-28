@@ -1,5 +1,5 @@
 <?php
-$pageTitle  = 'User Management';
+$pageTitle  = 'Faculty Members';
 $activePage = 'users';
 require_once __DIR__ . '/../../includes/header.php';
 $db = getDB();
@@ -20,7 +20,7 @@ $users->execute([$facId]);
 $users = $users->fetchAll();
 ?>
 <div style="margin-bottom:1rem">
-    <h2 style="margin:0;font-size:20px">User Management — <?= htmlspecialchars($tdpp['faculty_code']) ?></h2>
+    <h2 style="margin:0;font-size:20px">Faculty Members — <?= htmlspecialchars($tdpp['faculty_code']) ?></h2>
     <p style="margin:4px 0 0;color:var(--muted);font-size:13px">Lecturer accounts in your faculty</p>
 </div>
 <div class="card">

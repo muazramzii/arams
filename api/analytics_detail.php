@@ -1,7 +1,13 @@
 <?php
 // ============================================================
-//  ARAMS — API: Analytics Drill-Down Detail
-//  Returns records matching a clicked chart segment.
+//  ARAMS — API: Analytics Drill-Down Detail  (v2: faculty layer)
+//  Flow:
+//   - Admin clicks a chart segment with NO faculty_id  -> returns
+//     a per-faculty SUMMARY (faculty_name + count).      [mode=faculty]
+//   - Admin then clicks a faculty (faculty_id supplied)  -> returns
+//     the full record list for that faculty.            [mode=records]
+//   - TDPP / Lecturer are already scoped to one faculty/self, so they
+//     skip straight to the record list.                 [mode=records]
 //  Used by both Admin and TDPP analytics pages.
 // ============================================================
 require_once __DIR__ . '/../config/database.php';
@@ -9,11 +15,11 @@ require_once __DIR__ . '/../includes/auth.php';
 requireLogin();
 header('Content-Type: application/json');
 
-$user    = currentUser();
-$role    = $_SESSION['role'] ?? '';
-$db      = getDB();
+$user = currentUser();
+$role = $_SESSION['role'] ?? '';
+$db   = getDB();
 
-// Determine scope
+// ---- Determine scope ---------------------------------------------------
 $facId = 0;     // 0 = all faculties (admin)
 $lecId = 0;     // 0 = not a single lecturer
 if ($role === 'TDPP') {
@@ -24,96 +30,129 @@ if ($role === 'TDPP') {
     $lecId = (int)($user['lecturer_id'] ?? 0);
 }
 
-$type  = $_GET['type']  ?? '';   // year | quartile | pubtype | grantcat | grantrole
-$value = $_GET['value'] ?? '';
+$type    = $_GET['type']  ?? '';   // year | quartile | pubtype | grantcat | grantrole
+$value   = $_GET['value'] ?? '';
+// NEW: optional faculty drill target (only meaningful for Admin scope)
+$drillFac = isset($_GET['faculty_id']) ? (int)$_GET['faculty_id'] : 0;
 
-$rows  = [];
-$title = '';
-$kind  = 'publication'; // or 'grant'
+// ---- Map each chart type to its table + filter column ------------------
+//  Centralised so the faculty-summary query and the record query stay
+//  perfectly in sync (no duplicated WHERE logic).
+$map = [
+    'year'      => ['kind'=>'publication','table'=>'Tbl_Publication','col'=>'pub_year',       'titleFmt'=>'Publications in %s'],
+    'quartile'  => ['kind'=>'publication','table'=>'Tbl_Publication','col'=>'quartile',       'titleFmt'=>'Publications — Quartile %s'],
+    'pubtype'   => ['kind'=>'publication','table'=>'Tbl_Publication','col'=>'pub_type',       'titleFmt'=>'Publications — %s'],
+    'grantcat'  => ['kind'=>'grant',      'table'=>'Tbl_Grant',      'col'=>'grant_category', 'titleFmt'=>'Grants — %s'],
+    'grantrole' => ['kind'=>'grant',      'table'=>'Tbl_Grant',      'col'=>'role',           'titleFmt'=>'Grants — Role: %s'],
+];
 
-// Helper to add scope filter
-function scopeJoin($facId, $lecId) {
-    if ($lecId > 0) return [" AND rd.lecturer_id = ?", [$lecId]];
-    if ($facId > 0) return [" AND l.faculty_id = ?", [$facId]];
-    return ["", []];
-}
-[$scopeSql, $scopeParams] = scopeJoin($facId, $lecId);
-
-switch ($type) {
-    case 'year':
-        $title = "Publications in $value";
-        $sql = "SELECT p.title, p.authors, p.journal_name, p.pub_year, p.pub_type,
-                       p.indexing_type, p.quartile, rd.status
-                FROM Tbl_Publication p
-                JOIN Tbl_Research_Data rd ON p.data_id=rd.data_id
-                JOIN Tbl_Lecturer l ON l.lecturer_id=rd.lecturer_id
-                WHERE rd.status='Approved' AND p.pub_year = ?$scopeSql
-                ORDER BY p.title";
-        $params = array_merge([(int)$value], $scopeParams);
-        break;
-
-    case 'quartile':
-        $title = "Publications — Quartile $value";
-        $sql = "SELECT p.title, p.authors, p.journal_name, p.pub_year, p.pub_type,
-                       p.indexing_type, p.quartile, rd.status
-                FROM Tbl_Publication p
-                JOIN Tbl_Research_Data rd ON p.data_id=rd.data_id
-                JOIN Tbl_Lecturer l ON l.lecturer_id=rd.lecturer_id
-                WHERE rd.status='Approved' AND p.quartile = ?$scopeSql
-                ORDER BY p.pub_year DESC";
-        $params = array_merge([$value], $scopeParams);
-        break;
-
-    case 'pubtype':
-        $title = "Publications — $value";
-        $sql = "SELECT p.title, p.authors, p.journal_name, p.pub_year, p.pub_type,
-                       p.indexing_type, p.quartile, rd.status
-                FROM Tbl_Publication p
-                JOIN Tbl_Research_Data rd ON p.data_id=rd.data_id
-                JOIN Tbl_Lecturer l ON l.lecturer_id=rd.lecturer_id
-                WHERE rd.status='Approved' AND p.pub_type = ?$scopeSql
-                ORDER BY p.pub_year DESC";
-        $params = array_merge([$value], $scopeParams);
-        break;
-
-    case 'grantcat':
-        $kind = 'grant';
-        $title = "Grants — $value";
-        $sql = "SELECT g.grant_title, g.grant_code, g.funder, g.grant_category,
-                       g.grant_level, g.role, g.amount, g.status
-                FROM Tbl_Grant g
-                JOIN Tbl_Research_Data rd ON g.data_id=rd.data_id
-                JOIN Tbl_Lecturer l ON l.lecturer_id=rd.lecturer_id
-                WHERE rd.status='Approved' AND g.grant_category = ?$scopeSql
-                ORDER BY g.grant_title";
-        $params = array_merge([$value], $scopeParams);
-        break;
-
-    case 'grantrole':
-        $kind = 'grant';
-        $title = "Grants — Role: $value";
-        $sql = "SELECT g.grant_title, g.grant_code, g.funder, g.grant_category,
-                       g.grant_level, g.role, g.amount, g.status
-                FROM Tbl_Grant g
-                JOIN Tbl_Research_Data rd ON g.data_id=rd.data_id
-                JOIN Tbl_Lecturer l ON l.lecturer_id=rd.lecturer_id
-                WHERE rd.status='Approved' AND g.role = ?$scopeSql
-                ORDER BY g.grant_title";
-        $params = array_merge([$value], $scopeParams);
-        break;
-
-    default:
-        echo json_encode(['success'=>false,'message'=>'Invalid filter']); exit;
+if (!isset($map[$type])) {
+    echo json_encode(['success'=>false,'message'=>'Invalid filter']); exit;
 }
 
+$cfg   = $map[$type];
+$kind  = $cfg['kind'];
+$tbl   = $cfg['table'];
+$col   = $cfg['col'];
+$alias = ($kind === 'publication') ? 'p' : 'g';
+// year is numeric, everything else is a string
+$boundValue = ($type === 'year') ? (int)$value : $value;
+
+// ============================================================
+//  MODE 1 — Per-faculty summary (Admin only, no faculty chosen yet)
+// ============================================================
+$wantFacultySummary = ($facId === 0 && $lecId === 0 && $drillFac === 0);
+
+if ($wantFacultySummary) {
+    $sql = "SELECT f.faculty_id, f.faculty_code, f.faculty_name, COUNT(*) AS cnt
+            FROM {$tbl} {$alias}
+            JOIN Tbl_Research_Data rd ON {$alias}.data_id = rd.data_id
+            JOIN Tbl_Lecturer l       ON l.lecturer_id   = rd.lecturer_id
+            JOIN Tbl_Faculty f        ON f.faculty_id    = l.faculty_id
+            WHERE rd.status='Approved' AND {$alias}.{$col} = ?
+            GROUP BY f.faculty_id, f.faculty_code, f.faculty_name
+            ORDER BY cnt DESC, f.faculty_name";
+    $stmt = $db->prepare($sql);
+    $stmt->execute([$boundValue]);
+    $facs = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    $total = 0;
+    foreach ($facs as $f) { $total += (int)$f['cnt']; }
+
+    echo json_encode([
+        'success'    => true,
+        'mode'       => 'faculty',                 // <-- tells JS to render faculty list
+        'type'       => $type,
+        'value'      => $value,
+        'title'      => sprintf($cfg['titleFmt'], $value),
+        'kind'       => $kind,
+        'total'      => $total,
+        'faculties'  => $facs,                     // [{faculty_id, faculty_code, faculty_name, cnt}]
+    ]);
+    exit;
+}
+
+// ============================================================
+//  MODE 2 — Record list
+//  Scope precedence: lecturer self > TDPP faculty > Admin-chosen faculty
+// ============================================================
+$scopeSql = '';
+$scopeParams = [];
+if ($lecId > 0) {
+    $scopeSql = " AND rd.lecturer_id = ?";
+    $scopeParams = [$lecId];
+} elseif ($facId > 0) {
+    $scopeSql = " AND l.faculty_id = ?";
+    $scopeParams = [$facId];
+} elseif ($drillFac > 0) {
+    $scopeSql = " AND l.faculty_id = ?";
+    $scopeParams = [$drillFac];
+}
+
+// Resolve the faculty name for the title (when an Admin drilled into one)
+$facName = '';
+if ($drillFac > 0) {
+    $fn = $db->prepare("SELECT faculty_name FROM Tbl_Faculty WHERE faculty_id=?");
+    $fn->execute([$drillFac]);
+    $facName = (string)$fn->fetchColumn();
+}
+
+$baseTitle = sprintf($cfg['titleFmt'], $value);
+$title = $facName !== '' ? "$baseTitle · $facName" : $baseTitle;
+
+if ($kind === 'publication') {
+    $sql = "SELECT l.full_name AS lecturer_name, l.title AS lecturer_title,
+                   p.title, p.authors, p.journal_name, p.pub_year, p.pub_type,
+                   p.indexing_type, p.quartile, rd.status
+            FROM Tbl_Publication p
+            JOIN Tbl_Research_Data rd ON p.data_id=rd.data_id
+            JOIN Tbl_Lecturer l       ON l.lecturer_id=rd.lecturer_id
+            WHERE rd.status='Approved' AND p.{$col} = ?{$scopeSql}
+            ORDER BY l.full_name, p.pub_year DESC, p.title";
+} else {
+    $sql = "SELECT l.full_name AS lecturer_name, l.title AS lecturer_title,
+                   g.grant_title, g.grant_code, g.funder, g.grant_category,
+                   g.grant_level, g.role, g.amount, g.status
+            FROM Tbl_Grant g
+            JOIN Tbl_Research_Data rd ON g.data_id=rd.data_id
+            JOIN Tbl_Lecturer l       ON l.lecturer_id=rd.lecturer_id
+            WHERE rd.status='Approved' AND g.{$col} = ?{$scopeSql}
+            ORDER BY l.full_name, g.grant_title";
+}
+
+$params = array_merge([$boundValue], $scopeParams);
 $stmt = $db->prepare($sql);
 $stmt->execute($params);
 $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 echo json_encode([
-    'success' => true,
-    'title'   => $title,
-    'kind'    => $kind,
-    'count'   => count($rows),
-    'rows'    => $rows,
+    'success'    => true,
+    'mode'       => 'records',                     // <-- tells JS to render record list
+    'type'       => $type,
+    'value'      => $value,
+    'faculty_id' => $drillFac,
+    'title'      => $title,
+    'kind'       => $kind,
+    'count'      => count($rows),
+    'rows'       => $rows,
 ]);

@@ -137,7 +137,7 @@ $grantRoleColors= ['#0B3C5D','#1B998B','#f59e0b'];
         <?php if (empty($pubTrend)): ?>
         <p style="color:var(--muted);font-size:13px;text-align:center;padding:2rem 0">No approved publications yet.</p>
         <?php else: ?>
-        <div class="bar-chart" style="height:160px">
+        <div class="bar-chart" style="height:160px;flex-direction:row !important;align-items:flex-end !important">
             <?php foreach ($pubTrend as $i => $row):
                 $barStyle = 'height:' . $barPcts[$i] . '%;background:linear-gradient(0deg,var(--blue),var(--blue-light))';
             ?>
@@ -338,12 +338,16 @@ function drillDown(type, value) {
                 return;
             }
 
+            var hasLecturer = res.rows.length && (res.rows[0].lecturer_name !== undefined);
+            var lecHead = hasLecturer ? '<th>Lecturer</th>' : '';
+
             if (res.kind === 'publication') {
-                head.innerHTML = '<tr><th>Title</th><th>Authors</th><th>Journal</th><th>Year</th><th>Quartile</th><th>Indexing</th><th>Status</th></tr>';
+                head.innerHTML = '<tr>' + lecHead + '<th>Title</th><th>Authors</th><th>Journal</th><th>Year</th><th>Quartile</th><th>Indexing</th><th>Status</th></tr>';
                 body.innerHTML = res.rows.map(function(r){
-                    return '<tr>' +
-                        '<td style="font-weight:600;font-size:12px;max-width:260px">' + esc(r.title) + '</td>' +
-                        '<td style="font-size:11px;color:var(--muted);max-width:180px">' + esc(r.authors) + '</td>' +
+                    var lecCell = hasLecturer ? '<td style="font-size:11px;font-weight:600;white-space:nowrap">' + esc((r.lecturer_title? r.lecturer_title+' ':'') + r.lecturer_name) + '</td>' : '';
+                    return '<tr>' + lecCell +
+                        '<td style="font-weight:600;font-size:12px;max-width:240px">' + esc(r.title) + '</td>' +
+                        '<td style="font-size:11px;color:var(--muted);max-width:160px">' + esc(r.authors) + '</td>' +
                         '<td style="font-size:11px">' + esc(r.journal_name) + '</td>' +
                         '<td>' + esc(r.pub_year) + '</td>' +
                         '<td><span class="badge badge-blue" style="font-size:10px">' + esc(r.quartile) + '</span></td>' +
@@ -352,10 +356,11 @@ function drillDown(type, value) {
                         '</tr>';
                 }).join('');
             } else {
-                head.innerHTML = '<tr><th>Grant Title</th><th>Code</th><th>Funder</th><th>Category</th><th>Level</th><th>Role</th><th>Amount</th><th>Status</th></tr>';
+                head.innerHTML = '<tr>' + lecHead + '<th>Grant Title</th><th>Code</th><th>Funder</th><th>Category</th><th>Level</th><th>Role</th><th>Amount</th><th>Status</th></tr>';
                 body.innerHTML = res.rows.map(function(r){
-                    return '<tr>' +
-                        '<td style="font-weight:600;font-size:12px;max-width:240px">' + esc(r.grant_title) + '</td>' +
+                    var lecCell = hasLecturer ? '<td style="font-size:11px;font-weight:600;white-space:nowrap">' + esc((r.lecturer_title? r.lecturer_title+' ':'') + r.lecturer_name) + '</td>' : '';
+                    return '<tr>' + lecCell +
+                        '<td style="font-weight:600;font-size:12px;max-width:220px">' + esc(r.grant_title) + '</td>' +
                         '<td style="font-size:11px">' + esc(r.grant_code) + '</td>' +
                         '<td style="font-size:11px">' + esc(r.funder) + '</td>' +
                         '<td style="font-size:11px">' + esc(r.grant_category) + '</td>' +
@@ -372,35 +377,70 @@ function drillDown(type, value) {
 function closeDrill() { document.getElementById('detailPanel').style.display = 'none'; }
 function esc(s) { if (s===null||s===undefined) return '—'; return String(s).replace(/[&<>"]/g, function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
 
-// Make donut segments clickable — attach after donuts render
+// Attach donut hovers + legend clicks after donuts render
 setTimeout(function() {
+    ['quartileDonut','pubTypeDonut','grantCatDonut','grantRoleDonut'].forEach(function(id){
+        attachDonutHovers(id);
+    });
     attachDonutClicks('quartileDonut', 'quartile');
-    attachDonutClicks('pubTypeDonut', 'pubtype');
+    attachDonutClicks('pubTypeDonut',  'pubtype');
     attachDonutClicks('grantCatDonut', 'grantcat');
-    attachDonutClicks('grantRoleDonut', 'grantrole');
-}, 600);
+    attachDonutClicks('grantRoleDonut','grantrole');
+}, 300);
 
+// ✅ CORRECT version — targets .legend-item directly (same as admin)
 function attachDonutClicks(donutId, filterType) {
     var container = document.getElementById(donutId);
     if (!container) return;
-    // Make legend rows clickable (renderDonut usually outputs label+value rows)
-    container.querySelectorAll('*').forEach(function(el){
-        var txt = (el.textContent||'').trim();
-        // Only leaf-ish elements with a short label
-        if (el.children.length === 0 && txt.length > 0 && txt.length < 30) {
-            el.style.cursor = 'pointer';
-            el.addEventListener('click', function(){
-                // extract label (strip numbers)
-                var label = txt.replace(/[0-9]+$/,'').trim();
-                if (label) drillDown(filterType, label);
-            });
-        }
+    var items = container.querySelectorAll('.legend-item');
+    items.forEach(function(item){
+        item.style.cursor = 'pointer';
+        item.title = 'Click to view records';
+        item.addEventListener('mouseenter', function(){ item.style.opacity = '0.7'; });
+        item.addEventListener('mouseleave', function(){ item.style.opacity = '1'; });
+        item.addEventListener('click', function(){
+            var label = '';
+            var spans = item.querySelectorAll('span');
+            for (var i=0; i<spans.length; i++) {
+                if (!spans[i].classList.contains('legend-val')) { label = spans[i].textContent.trim(); break; }
+            }
+            if (label) drillDown(filterType, label);
+        });
     });
-    // Also make SVG paths clickable if present
-    container.querySelectorAll('svg path, svg circle').forEach(function(p){
-        p.style.cursor = 'pointer';
+}
+
+// Donut hover tooltips
+function attachDonutHovers(donutId) {
+    var d = document.getElementById(donutId);
+    if (!d) return;
+    var svg = d.querySelector('svg'); if (!svg) return;
+    var tip = document.getElementById('donutTip');
+    if (!tip) {
+        tip = document.createElement('div');
+        tip.id = 'donutTip';
+        tip.style.cssText = 'position:fixed;z-index:9999;pointer-events:none;background:#0f172a;color:#fff;padding:6px 10px;border-radius:6px;font-size:12px;font-weight:600;box-shadow:0 4px 12px rgba(0,0,0,.25);display:none;white-space:nowrap';
+        document.body.appendChild(tip);
+    }
+    var map = {};
+    d.querySelectorAll('.legend-item').forEach(function(li){
+        var sw = li.querySelector('[style*="background"]');
+        if (!sw) return;
+        var m = (sw.getAttribute('style') || '').match(/background:\s*([^;]+)/);
+        if (m) map[m[1].trim().toLowerCase()] = li.textContent.replace(/\s+/g,' ').trim();
+    });
+    svg.querySelectorAll('circle').forEach(function(c){
+        var stroke = (c.getAttribute('stroke') || '').toLowerCase();
+        var label = map[stroke]; if (!label) return;
+        var baseW = c.getAttribute('stroke-width');
+        c.style.cursor = 'pointer';
+        c.style.transition = 'stroke-width .15s';
+        c.addEventListener('mouseenter', function(){ tip.textContent = label; tip.style.display='block'; c.setAttribute('stroke-width',(parseFloat(baseW)+4)); });
+        c.addEventListener('mousemove', function(e){ tip.style.left=(e.clientX+14)+'px'; tip.style.top=(e.clientY-10)+'px'; });
+        c.addEventListener('mouseleave', function(){ tip.style.display='none'; c.setAttribute('stroke-width',baseW); });
     });
 }
 </script>
+
+<?php require_once __DIR__ . '/../../includes/footer.php'; ?>
 
 <?php require_once __DIR__ . '/../../includes/footer.php'; ?>

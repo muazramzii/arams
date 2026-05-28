@@ -57,6 +57,7 @@ $admNav = [
     ['id' => 'analytics',  'label' => 'Analytics',       'icon' => 'chart-line',     'url' => '/arams/pages/admin/analytics.php'],
     ['id' => 'reports',    'label' => 'Reports',         'icon' => 'file-alt',       'url' => '/arams/pages/admin/reports.php'],
     ['id' => 'users',      'label' => 'User Management', 'icon' => 'users-cog',      'url' => '/arams/pages/admin/users.php'],
+     ['id' => 'audit',      'label' => 'Audit Log',       'icon' => 'shield-alt',     'url' => '/arams/pages/admin/audit_log.php'],
 ];
 $tdppNav = [
     ['id' => 'dashboard',  'label' => 'Dashboard',       'icon' => 'tachometer-alt', 'url' => '/arams/pages/tdpp/dashboard.php'],
@@ -64,7 +65,7 @@ $tdppNav = [
     ['id' => 'kpi',        'label' => 'KPI Tasks',       'icon' => 'list-check',     'url' => '/arams/pages/tdpp/kpi.php'],
     ['id' => 'validation', 'label' => 'Validation',      'icon' => 'check-circle',   'url' => '/arams/pages/tdpp/validation.php'],
     ['id' => 'analytics',  'label' => 'Analytics',       'icon' => 'chart-line',     'url' => '/arams/pages/tdpp/analytics.php'],
-    ['id' => 'users',      'label' => 'User Management', 'icon' => 'users-cog',      'url' => '/arams/pages/tdpp/users.php'],
+    ['id' => 'users',      'label' => 'Faculty Members', 'icon' => 'users',          'url' => '/arams/pages/tdpp/users.php'],
 ];
 
 if ($isAdmin) {

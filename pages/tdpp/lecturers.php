@@ -25,18 +25,24 @@ $lecturers = $lecturers->fetchAll();
 ?>
 <div style="margin-bottom:1rem">
     <h2 style="margin:0;font-size:20px"><?= htmlspecialchars($tdpp['faculty_name']) ?> — Lecturers</h2>
-    <p style="margin:4px 0 0;color:var(--muted);font-size:13px"><?= count($lecturers) ?> lecturers under your monitoring</p>
+    <p style="margin:4px 0 0;color:var(--muted);font-size:13px"><?= count($lecturers) ?> lecturers under your monitoring · click a name to view their analytics</p>
 </div>
 <div class="card">
     <div class="table-wrap">
         <table class="arams-table">
-            <thead><tr><th>Name</th><th>Position</th><th>Email</th><th>Pubs</th><th>Grants</th><th>KPI Progress</th></tr></thead>
+            <thead><tr><th>Name</th><th>Position</th><th>Email</th><th>Pubs</th><th>Grants</th><th>KPI Progress</th><th></th></tr></thead>
             <tbody>
             <?php foreach ($lecturers as $l):
                 $rate = $l['tasks'] > 0 ? round($l['done']/$l['tasks']*100) : 0;
+                $analyticsUrl = '/arams/pages/tdpp/lecturer_analytics.php?lecturer_id=' . (int)$l['lecturer_id'];
             ?>
-            <tr>
-                <td style="font-weight:600"><?= htmlspecialchars($l['full_name']) ?>
+            <tr class="lec-row" style="cursor:pointer"
+                onclick="window.location='<?= $analyticsUrl ?>'"
+                title="View <?= htmlspecialchars($l['full_name']) ?>'s analytics">
+                <td style="font-weight:600">
+                    <a href="<?= $analyticsUrl ?>" style="color:var(--blue);text-decoration:none" onclick="event.stopPropagation()">
+                        <?= htmlspecialchars($l['full_name']) ?>
+                    </a>
                     <div style="font-size:11px;color:var(--muted)"><?= htmlspecialchars($l['staff_no']) ?></div>
                 </td>
                 <td style="font-size:12px"><?= htmlspecialchars($l['position'] ?? '—') ?>
@@ -49,10 +55,11 @@ $lecturers = $lecturers->fetchAll();
                         <?= (int)$l['done'] ?>/<?= (int)$l['tasks'] ?> (<?= $rate ?>%)
                     </span>
                 </td>
+                <td style="text-align:right;color:var(--muted)"><i class="fas fa-chart-line"></i></td>
             </tr>
             <?php endforeach; ?>
             <?php if (empty($lecturers)): ?>
-            <tr><td colspan="6" style="text-align:center;color:var(--muted);padding:2rem">No lecturers in your faculty.</td></tr>
+            <tr><td colspan="7" style="text-align:center;color:var(--muted);padding:2rem">No lecturers in your faculty.</td></tr>
             <?php endif; ?>
             </tbody>
         </table>
