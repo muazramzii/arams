@@ -407,7 +407,14 @@ function pubForm() { return `<form id="addForm" method="POST">
             <option>Proceeding / Seminar</option>
             <option>Book Chapter</option>
             <option>Book</option>
+            <option>Others</option>
         </select></div>
+    </div>
+    <div class="form-row">
+        <div class="form-group"><label class="form-label">Impact Factor</label>
+        <input class="form-control" name="impact_factor" type="number" step="0.001" min="0" placeholder="e.g. 3.245 (WoS)"></div>
+        <div class="form-group"><label class="form-label">Country</label>
+        <input class="form-control" name="country" placeholder="e.g. Malaysia"></div>
     </div>
     <div class="form-group"><label class="form-label">DOI</label>
     <input class="form-control" name="doi" placeholder="e.g. 10.1109/..."></div>
