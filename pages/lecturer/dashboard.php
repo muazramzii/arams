@@ -41,7 +41,7 @@ $pubYear = $db->prepare(
     "SELECT p.pub_year, COUNT(*) AS cnt
      FROM tbl_publication p
      JOIN tbl_research_data rd ON p.data_id = rd.data_id
-     WHERE rd.lecturer_id = ? AND rd.status = 'Approved'
+     WHERE rd.lecturer_id = ? AND rd.status = 'Approved' AND rd.is_deleted=0
        AND p.pub_year >= YEAR(NOW()) - 5
      GROUP BY p.pub_year ORDER BY p.pub_year"
 );

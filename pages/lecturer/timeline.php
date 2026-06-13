@@ -14,7 +14,7 @@ $pubs = $db->prepare(
     "SELECT p.pub_year AS year, p.title, p.pub_type, p.quartile, p.indexing_type, 'publication' AS rtype
      FROM tbl_publication p
      JOIN tbl_research_data rd ON p.data_id = rd.data_id
-     WHERE rd.lecturer_id = ? AND rd.status = 'Approved'
+     WHERE rd.lecturer_id = ? AND rd.status = 'Approved' AND rd.is_deleted=0
      ORDER BY p.pub_year DESC"
 );
 $pubs->execute([$lecId]);
@@ -24,7 +24,7 @@ $grants = $db->prepare(
             g.grant_category, g.status AS grant_status, 'grant' AS rtype
      FROM tbl_grant g
      JOIN tbl_research_data rd ON g.data_id = rd.data_id
-     WHERE rd.lecturer_id = ? AND rd.status = 'Approved'
+     WHERE rd.lecturer_id = ? AND rd.status = 'Approved' AND rd.is_deleted=0
      ORDER BY g.start_date DESC"
 );
 $grants->execute([$lecId]);
@@ -33,7 +33,7 @@ $hindexes = $db->prepare(
     "SELECT h.record_year AS year, h.hindex_value, h.citation_count, h.source, 'hindex' AS rtype
      FROM tbl_hindex h
      JOIN tbl_research_data rd ON h.data_id = rd.data_id
-     WHERE rd.lecturer_id = ? AND rd.status = 'Approved'
+     WHERE rd.lecturer_id = ? AND rd.status = 'Approved' AND rd.is_deleted=0
      ORDER BY h.record_year DESC"
 );
 $hindexes->execute([$lecId]);
