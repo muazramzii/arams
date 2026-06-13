@@ -58,7 +58,7 @@ try {
 
     if ($type === 'publication') {
         if (!$id) { echo json_encode(['success'=>false,'message'=>'Invalid publication']); exit; }
-        $allowed = ['Journal Article','Conference Paper','Book','Book Chapter','Patent','Report','Others'];
+        $allowed = ['Journal','Proceeding / Seminar','Book Chapter','Book','Others'];
         $val = $body['pub_type'] ?? '';
         if (!in_array($val, $allowed, true)) { echo json_encode(['success'=>false,'message'=>'Invalid type']); exit; }
 

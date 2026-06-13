@@ -128,7 +128,7 @@ $grantCatColors  = ['#0B3C5D','#1B998B','#3b82f6','#f59e0b','#8b5cf6','#ef4444',
 $grantRoleColors = ['#0B3C5D','#1B998B','#f59e0b'];
 
 // ── Allowed ENUM values (match DB schema) ─────────────────
-$PUB_TYPES   = ['Journal Article','Conference Paper','Book','Book Chapter','Patent','Report','Others'];
+$PUB_TYPES   = ['Journal','Proceeding / Seminar','Book Chapter','Book','Others'];
 $GRANT_CATS  = ['Tier 1','RE-GG','Contract','GPPS','GPP','ICI','UTHM Internal (VoT)',
                 'Geran Tanpa Dana (X)','FRGS','PRGS','TRGS','LRGS','Geran Kontrak Kementerian',
                 'Lain-Lain Geran Kebangsaan','KKP','PPRN','Sepadan RESIP','Sepadan MTUN',
