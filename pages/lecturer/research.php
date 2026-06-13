@@ -267,6 +267,25 @@ const panels = document.querySelectorAll('.tab-panel');
 
 let activeResTab = '<?= $tab ?>';
 
+// ── Grant Level -> Type cascading map (matches FRT) ──────────
+const GRANT_TYPES = {
+    'Universiti':   ['Tier 1','RE-GG','Contract','GPPS','GPP','ICI','UTHM Internal (VoT)'],
+    'National':     ['Geran Tanpa Dana (X)','FRGS','PRGS','TRGS','LRGS','Geran Kontrak Kementerian','Lain-Lain Geran Kebangsaan','KKP','PPRN','Sepadan RESIP','Sepadan MTUN'],
+    'International': ['International'],
+    'NGO':          ['NGO'],
+    'Industries':   ['Industries']
+};
+function cascadeGrantType(level, selected) {
+    const sel = document.getElementById('grantCategorySelect');
+    if (!sel) return;
+    const list = GRANT_TYPES[level] || [];
+    if (!list.length) {
+        sel.innerHTML = '<option value="">— Select Grant Level first —</option>';
+        return;
+    }
+    sel.innerHTML = list.map(t => `<option value="${t}"${selected===t?' selected':''}>${t}</option>`).join('');
+}
+
 function switchResTab(tabId, btn) {
     activeResTab = tabId;
     document.querySelectorAll('#researchTabs .tab-btn').forEach(t => t.classList.remove('active'));
@@ -437,7 +456,7 @@ function grantForm() { return `<form id="addForm" method="POST">
     </div>
     <div class="form-row">
         <div class="form-group"><label class="form-label">Grant Level</label>
-        <select class="form-control" name="grant_level">
+        <select class="form-control" name="grant_level" id="grantLevelSelect" onchange="cascadeGrantType(this.value)">
             <option value="">— Select —</option>
             <option>Universiti</option>
             <option>National</option>
@@ -451,22 +470,8 @@ function grantForm() { return `<form id="addForm" method="POST">
         </select></div>
     </div>
     <div class="form-group"><label class="form-label">Grant Type / Category</label>
-    <select class="form-control" name="grant_category">
-        <optgroup label="Geran Universiti">
-            <option>Tier 1</option><option>RE-GG</option><option>Contract</option>
-            <option>GPPS</option><option>GPP</option><option>ICI</option>
-            <option>UTHM Internal (VoT)</option>
-        </optgroup>
-        <optgroup label="Geran Kebangsaan">
-            <option>FRGS</option><option>PRGS</option><option>TRGS</option>
-            <option>LRGS</option><option>Geran Kontrak Kementerian</option>
-            <option>Lain-Lain Geran Kebangsaan</option>
-            <option>KKP</option><option>PPRN</option>
-            <option>Sepadan RESIP</option><option>Sepadan MTUN</option>
-        </optgroup>
-        <optgroup label="Other Grants">
-            <option>NGO</option><option>International</option><option>Industries</option><option>Others</option>
-        </optgroup>
+    <select class="form-control" name="grant_category" id="grantCategorySelect">
+        <option value="">— Select Grant Level first —</option>
     </select></div>
 </form>`; }
 
