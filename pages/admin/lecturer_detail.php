@@ -470,6 +470,15 @@ body.edit-mode .view-only{display:none}
     </div>
 </div>
 
+<!-- ── Admin: Add Record on behalf of lecturer ────── -->
+<div class="card" style="margin-bottom:1rem;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+    <div>
+        <div style="font-weight:600;font-size:14px"><i class="fas fa-plus-circle" style="color:var(--teal)"></i> Add a research record for this lecturer</div>
+        <div style="font-size:12px;color:var(--muted)">Records added here are marked validated and recorded in the audit trail.</div>
+    </div>
+    <button class="btn btn-teal" onclick="openAddRecordModal()"><i class="fas fa-plus"></i> Add Record</button>
+</div>
+
 <!-- ── ROW 4: Publications List + Grants + Awards ────── -->
 <div class="grid-2" style="margin-bottom:1rem">
 
@@ -659,6 +668,7 @@ body.edit-mode .view-only{display:none}
 </div>
 
 <!-- ── CHARTS JS ──────────────────────────────────────── -->
+<script src="/arams/assets/js/research_forms.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
 
@@ -707,6 +717,53 @@ document.addEventListener('DOMContentLoaded', function () {
 
 // ── ADMIN INLINE EDIT LOGIC ─────────────────────────────
 const LEC_ID = <?= $lecId ?>;
+
+// ── Admin: Add Research Record on behalf of this lecturer ────
+let _adminFormType = 'publication';
+function openAddRecordModal(){
+    openModal(`
+        <div class="modal-header">
+            <h3 class="modal-title">Add Research Record</h3>
+            <button class="modal-close" onclick="closeModal()">×</button>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px" id="adminTypeTabs">
+            <button class="btn btn-outline btn-sm active" onclick="switchAdminForm('publication',this)">Publication</button>
+            <button class="btn btn-outline btn-sm" onclick="switchAdminForm('grant',this)">Grant</button>
+            <button class="btn btn-outline btn-sm" onclick="switchAdminForm('hindex',this)">H-Index</button>
+            <button class="btn btn-outline btn-sm" onclick="switchAdminForm('ip',this)">IP</button>
+            <button class="btn btn-outline btn-sm" onclick="switchAdminForm('income',this)">Income</button>
+        </div>
+        <div id="adminFormArea"></div>
+        <button class="btn btn-teal btn-full" style="margin-top:1rem" onclick="submitAdminRecord(this)">
+            <i class="fas fa-save"></i> Add Record (validated)
+        </button>`);
+    switchAdminForm('publication');
+}
+function switchAdminForm(type, btn){
+    _adminFormType = type;
+    const map = { publication:pubForm, grant:grantForm, hindex:hindexForm, ip:ipForm, income:incomeForm };
+    document.getElementById('adminFormArea').innerHTML = (map[type] || pubForm)();
+    if (btn){
+        document.querySelectorAll('#adminTypeTabs .btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+    }
+}
+function submitAdminRecord(btn){
+    const form = document.getElementById('addForm');
+    if (!form || !form.checkValidity()){ form && form.reportValidity(); return; }
+    const fd = new FormData(form);
+    fd.append('type', _adminFormType);
+    fd.append('lecturer_id', LEC_ID);
+    btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Adding...';
+    fetch('/arams/api/admin_add_record.php', { method:'POST', body: fd })
+        .then(r => r.json())
+        .then(res => {
+            showToast(res.message, res.success ? 'success' : 'error');
+            if (res.success){ closeModal(); setTimeout(()=>location.reload(), 1200); }
+        })
+        .catch(() => showToast('Network error.', 'error'))
+        .finally(() => { btn.disabled = false; btn.innerHTML = '<i class="fas fa-save"></i> Add Record (validated)'; });
+}
 const API = '/arams/api/update_lecturer_admin.php';
 
 function toggleEditMode(){
