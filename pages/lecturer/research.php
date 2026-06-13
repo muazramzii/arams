@@ -540,7 +540,8 @@ function incomeForm() { return `<form id="addForm" method="POST">
     <div class="form-group"><label class="form-label">Category</label>
     <select class="form-control" name="income_category">
         <option>Research Grant</option><option>Consultancy</option><option>Contract Research</option>
-        <option>Commercialisation</option><option>Training</option><option>Others</option>
+        <option>Commercialisation</option><option>Training</option>
+        <option>Endowment</option><option>In-Kind</option><option>Others</option>
     </select></div>
 </form>`; }
 </script>
