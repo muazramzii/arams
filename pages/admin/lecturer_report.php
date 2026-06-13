@@ -46,7 +46,7 @@ if ($selectedId) {
     $st = $db->prepare(
         "SELECT p.*, rd.submission_date FROM tbl_publication p
          JOIN tbl_research_data rd ON p.data_id = rd.data_id
-         WHERE rd.lecturer_id = ? AND rd.status = 'Approved'
+         WHERE rd.lecturer_id = ? AND rd.status = 'Approved' AND rd.is_deleted=0
          ORDER BY p.pub_year DESC"
     );
     $st->execute([$selectedId]); $pubs = $st->fetchAll();
@@ -54,7 +54,7 @@ if ($selectedId) {
     $st = $db->prepare(
         "SELECT g.* FROM tbl_grant g
          JOIN tbl_research_data rd ON g.data_id = rd.data_id
-         WHERE rd.lecturer_id = ? AND rd.status = 'Approved'
+         WHERE rd.lecturer_id = ? AND rd.status = 'Approved' AND rd.is_deleted=0
          ORDER BY g.start_date DESC"
     );
     $st->execute([$selectedId]); $grants = $st->fetchAll();
@@ -62,7 +62,7 @@ if ($selectedId) {
     $st = $db->prepare(
         "SELECT h.* FROM tbl_hindex h
          JOIN tbl_research_data rd ON h.data_id = rd.data_id
-         WHERE rd.lecturer_id = ? AND rd.status = 'Approved'
+         WHERE rd.lecturer_id = ? AND rd.status = 'Approved' AND rd.is_deleted=0
          ORDER BY h.record_year DESC"
     );
     $st->execute([$selectedId]); $hindexes = $st->fetchAll();
@@ -70,7 +70,7 @@ if ($selectedId) {
     $st = $db->prepare(
         "SELECT i.* FROM tbl_research_income i
          JOIN tbl_research_data rd ON i.data_id = rd.data_id
-         WHERE rd.lecturer_id = ? AND rd.status = 'Approved'
+         WHERE rd.lecturer_id = ? AND rd.status = 'Approved' AND rd.is_deleted=0
          ORDER BY i.year_received DESC"
     );
     $st->execute([$selectedId]); $incomes = $st->fetchAll();

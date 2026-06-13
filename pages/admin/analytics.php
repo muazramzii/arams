@@ -20,32 +20,32 @@ if ($isAdmin) {
     $pubTrend = $db->query(
         "SELECT p.pub_year AS yr, COUNT(*) AS cnt
          FROM tbl_publication p JOIN tbl_research_data rd ON p.data_id=rd.data_id
-         WHERE rd.status='Approved' AND p.pub_year >= YEAR(NOW())-5
+         WHERE rd.status='Approved' AND rd.is_deleted=0 AND p.pub_year >= YEAR(NOW())-5
          GROUP BY p.pub_year ORDER BY p.pub_year"
     )->fetchAll();
 
     $quartileDist = $db->query(
         "SELECT quartile, COUNT(*) AS cnt FROM tbl_publication p
          JOIN tbl_research_data rd ON p.data_id=rd.data_id
-         WHERE rd.status='Approved' GROUP BY quartile"
+         WHERE rd.status='Approved' AND rd.is_deleted=0 GROUP BY quartile"
     )->fetchAll();
 
     $pubTypes = $db->query(
         "SELECT pub_type, COUNT(*) AS cnt FROM tbl_publication p
          JOIN tbl_research_data rd ON p.data_id=rd.data_id
-         WHERE rd.status='Approved' GROUP BY pub_type ORDER BY cnt DESC"
+         WHERE rd.status='Approved' AND rd.is_deleted=0 GROUP BY pub_type ORDER BY cnt DESC"
     )->fetchAll();
 
     $grantCats = $db->query(
         "SELECT grant_category, COUNT(*) AS cnt FROM tbl_grant g
          JOIN tbl_research_data rd ON g.data_id=rd.data_id
-         WHERE rd.status='Approved' GROUP BY grant_category ORDER BY cnt DESC"
+         WHERE rd.status='Approved' AND rd.is_deleted=0 GROUP BY grant_category ORDER BY cnt DESC"
     )->fetchAll();
 
     $grantRoles = $db->query(
         "SELECT role, COUNT(*) AS cnt FROM tbl_grant g
          JOIN tbl_research_data rd ON g.data_id=rd.data_id
-         WHERE rd.status='Approved' GROUP BY role ORDER BY cnt DESC"
+         WHERE rd.status='Approved' AND rd.is_deleted=0 GROUP BY role ORDER BY cnt DESC"
     )->fetchAll();
 
     $facPerf = $db->query(
@@ -68,7 +68,7 @@ if ($isAdmin) {
     $pubTrend = $db->prepare(
         "SELECT p.pub_year AS yr, COUNT(*) AS cnt
          FROM tbl_publication p JOIN tbl_research_data rd ON p.data_id=rd.data_id
-         WHERE rd.lecturer_id=? AND rd.status='Approved'
+         WHERE rd.lecturer_id=? AND rd.status='Approved' AND rd.is_deleted=0
            AND p.pub_year >= YEAR(NOW())-5
          GROUP BY p.pub_year ORDER BY p.pub_year"
     );
@@ -77,14 +77,14 @@ if ($isAdmin) {
     $quartileDist = $db->prepare(
         "SELECT quartile, COUNT(*) AS cnt FROM tbl_publication p
          JOIN tbl_research_data rd ON p.data_id=rd.data_id
-         WHERE rd.lecturer_id=? AND rd.status='Approved' GROUP BY quartile"
+         WHERE rd.lecturer_id=? AND rd.status='Approved' AND rd.is_deleted=0 GROUP BY quartile"
     );
     $quartileDist->execute([$lecId]); $quartileDist = $quartileDist->fetchAll();
 
     $pubTypes = $db->prepare(
         "SELECT pub_type, COUNT(*) AS cnt FROM tbl_publication p
          JOIN tbl_research_data rd ON p.data_id=rd.data_id
-         WHERE rd.lecturer_id=? AND rd.status='Approved'
+         WHERE rd.lecturer_id=? AND rd.status='Approved' AND rd.is_deleted=0
          GROUP BY pub_type ORDER BY cnt DESC"
     );
     $pubTypes->execute([$lecId]); $pubTypes = $pubTypes->fetchAll();
@@ -92,7 +92,7 @@ if ($isAdmin) {
     $grantCats = $db->prepare(
         "SELECT grant_category, COUNT(*) AS cnt FROM tbl_grant g
          JOIN tbl_research_data rd ON g.data_id=rd.data_id
-         WHERE rd.lecturer_id=? AND rd.status='Approved'
+         WHERE rd.lecturer_id=? AND rd.status='Approved' AND rd.is_deleted=0
          GROUP BY grant_category ORDER BY cnt DESC"
     );
     $grantCats->execute([$lecId]); $grantCats = $grantCats->fetchAll();
@@ -100,7 +100,7 @@ if ($isAdmin) {
     $grantRoles = $db->prepare(
         "SELECT role, COUNT(*) AS cnt FROM tbl_grant g
          JOIN tbl_research_data rd ON g.data_id=rd.data_id
-         WHERE rd.lecturer_id=? AND rd.status='Approved'
+         WHERE rd.lecturer_id=? AND rd.status='Approved' AND rd.is_deleted=0
          GROUP BY role ORDER BY cnt DESC"
     );
     $grantRoles->execute([$lecId]); $grantRoles = $grantRoles->fetchAll();

@@ -11,12 +11,12 @@ $db = getDB();
 // Institution-wide KPIs
 $totals = $db->query(
     "SELECT
-        (SELECT COUNT(*) FROM tbl_publication p JOIN tbl_research_data rd ON p.data_id=rd.data_id WHERE rd.status='Approved') AS total_pubs,
-        (SELECT COUNT(*) FROM tbl_grant g JOIN tbl_research_data rd ON g.data_id=rd.data_id WHERE rd.status='Approved') AS total_grants,
-        (SELECT AVG(h.hindex_value) FROM tbl_hindex h JOIN tbl_research_data rd ON h.data_id=rd.data_id WHERE rd.status='Approved') AS avg_hindex,
-        (SELECT SUM(inc.amount) FROM tbl_research_income inc JOIN tbl_research_data rd ON inc.data_id=rd.data_id WHERE rd.status='Approved') AS total_income,
+        (SELECT COUNT(*) FROM tbl_publication p JOIN tbl_research_data rd ON p.data_id=rd.data_id WHERE rd.status='Approved' AND rd.is_deleted=0) AS total_pubs,
+        (SELECT COUNT(*) FROM tbl_grant g JOIN tbl_research_data rd ON g.data_id=rd.data_id WHERE rd.status='Approved' AND rd.is_deleted=0) AS total_grants,
+        (SELECT AVG(h.hindex_value) FROM tbl_hindex h JOIN tbl_research_data rd ON h.data_id=rd.data_id WHERE rd.status='Approved' AND rd.is_deleted=0) AS avg_hindex,
+        (SELECT SUM(inc.amount) FROM tbl_research_income inc JOIN tbl_research_data rd ON inc.data_id=rd.data_id WHERE rd.status='Approved' AND rd.is_deleted=0) AS total_income,
         (SELECT COUNT(*) FROM tbl_lecturer) AS total_lecturers,
-        (SELECT COUNT(*) FROM tbl_research_data WHERE status='Pending') AS pending_count"
+        (SELECT COUNT(*) FROM tbl_research_data WHERE status='Pending' AND is_deleted=0) AS pending_count"
 )->fetch();
 
 // Top 5 lecturers
@@ -44,7 +44,7 @@ $pubTrend = $db->query(
     "SELECT p.pub_year, COUNT(*) AS cnt
      FROM tbl_publication p
      JOIN tbl_research_data rd ON p.data_id=rd.data_id
-     WHERE rd.status='Approved' AND p.pub_year >= YEAR(NOW())-5
+     WHERE rd.status='Approved' AND rd.is_deleted=0 AND p.pub_year >= YEAR(NOW())-5
      GROUP BY p.pub_year ORDER BY p.pub_year"
 )->fetchAll();
 
