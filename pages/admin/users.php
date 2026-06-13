@@ -36,9 +36,14 @@ $researchGroups = $db->query(
         <h1>User Management</h1>
         <p>Manage all system accounts — lecturers, TDPP, and admins</p>
     </div>
-    <button class="btn btn-teal" onclick="openCreateUserModal()">
-        <i class="fas fa-user-plus"></i> Add User
-    </button>
+    <div style="display:flex;gap:8px">
+        <button class="btn btn-outline" onclick="openManageGroupsModal()">
+            <i class="fas fa-users-cog"></i> Manage Groups
+        </button>
+        <button class="btn btn-teal" onclick="openCreateUserModal()">
+            <i class="fas fa-user-plus"></i> Add User
+        </button>
+    </div>
 </div>
 
 <div class="search-row">
@@ -164,6 +169,13 @@ const groupOpts = `
     <option value="">— Select Research Group —</option>
     <?php foreach ($researchGroups as $g): ?>
     <option value="<?= $g['group_id'] ?>"><?= htmlspecialchars($g['group_name']) ?></option>
+    <?php endforeach; ?>
+`;
+
+const groupFacultyOpts = `
+    <option value="">— University-wide —</option>
+    <?php foreach ($faculties as $f): ?>
+    <option value="<?= $f['faculty_id'] ?>"><?= htmlspecialchars($f['faculty_code']) ?></option>
     <?php endforeach; ?>
 `;
 
@@ -426,6 +438,141 @@ function toggleUserStatus(userId, newStatus) {
         if (res.success) { showToast('User updated.','success'); setTimeout(()=>location.reload(),1000); }
         else showToast(res.message,'error');
     });
+}
+
+// ── Manage Research Groups ───────────────────────────────────
+function openManageGroupsModal() {
+    openModal(`
+        <div class="modal-header">
+            <h3 class="modal-title">Manage Research Groups</h3>
+            <button class="modal-close" onclick="closeModal()">×</button>
+        </div>
+        <form id="addGroupForm" onsubmit="return false" style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin-bottom:1rem">
+            <div class="form-group" style="flex:2;min-width:180px;margin:0">
+                <label class="form-label">Group Name *</label>
+                <input class="form-control" name="group_name" placeholder="e.g. Data Analytics, Sciences and Modeling (DASM)">
+            </div>
+            <div class="form-group" style="flex:1;min-width:90px;margin:0">
+                <label class="form-label">Code</label>
+                <input class="form-control" name="group_code" placeholder="DASM">
+            </div>
+            <div class="form-group" style="flex:1;min-width:110px;margin:0">
+                <label class="form-label">Faculty</label>
+                <select class="form-control" name="faculty_id">${groupFacultyOpts}</select>
+            </div>
+            <button class="btn btn-teal" onclick="submitAddGroup()" style="height:38px">
+                <i class="fas fa-plus"></i> Add
+            </button>
+        </form>
+        <div class="table-wrap" style="max-height:320px;overflow:auto">
+            <table class="arams-table">
+                <thead><tr><th>Group</th><th>Faculty</th><th>Status</th><th>Action</th></tr></thead>
+                <tbody id="groupListBody">
+                    <tr><td colspan="4" style="text-align:center;color:var(--muted);padding:1rem">Loading…</td></tr>
+                </tbody>
+            </table>
+        </div>`);
+    loadGroupsList();
+}
+
+let _groupsCache = [];
+function loadGroupsList() {
+    fetch('/arams/api/manage_groups.php?action=list')
+        .then(r => r.json())
+        .then(res => {
+            const body = document.getElementById('groupListBody');
+            if (!body) return;
+            _groupsCache = (res.success && res.data.groups) ? res.data.groups : [];
+            if (!_groupsCache.length) {
+                body.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:1rem">No groups yet.</td></tr>';
+                return;
+            }
+            body.innerHTML = _groupsCache.map(g => {
+                const fac = g.faculty_code ? `<span class="badge badge-grey">${escapeHtml(g.faculty_code)}</span>` : '<span style="color:var(--muted);font-size:12px">University-wide</span>';
+                const status = g.is_active==1 ? '<span class="badge badge-green">Active</span>' : '<span class="badge badge-red">Inactive</span>';
+                const toggleBtn = g.is_active==1
+                    ? `<button class="btn btn-danger btn-sm" onclick="toggleGroup(${g.group_id},0)">Deactivate</button>`
+                    : `<button class="btn btn-success btn-sm" onclick="toggleGroup(${g.group_id},1)">Activate</button>`;
+                return `<tr>
+                    <td style="font-size:13px">${escapeHtml(g.group_name)}${g.group_code?` <span style="color:var(--muted);font-size:11px">(${escapeHtml(g.group_code)})</span>`:''}</td>
+                    <td>${fac}</td>
+                    <td>${status}</td>
+                    <td><div style="display:flex;gap:5px">
+                        <button class="btn btn-outline btn-sm" onclick="openEditGroup(${g.group_id})">Edit</button>
+                        ${toggleBtn}
+                    </div></td>
+                </tr>`;
+            }).join('');
+        });
+}
+
+function submitAddGroup() {
+    const form = document.getElementById('addGroupForm');
+    const fd = new FormData(form);
+    fd.append('action','add');
+    if (!fd.get('group_name').trim()) { showToast('Group name is required.','error'); return; }
+    fetch('/arams/api/manage_groups.php', { method:'POST', body: fd })
+        .then(r => r.json())
+        .then(res => {
+            showToast(res.message, res.success?'success':'error');
+            if (res.success) { form.reset(); loadGroupsList(); }
+        });
+}
+
+function openEditGroup(id) {
+    const g = _groupsCache.find(x => x.group_id == id);
+    if (!g) return;
+    openModal(`
+        <div class="modal-header">
+            <h3 class="modal-title">Edit Research Group</h3>
+            <button class="modal-close" onclick="closeModal()">×</button>
+        </div>
+        <form id="editGroupForm" onsubmit="return false">
+            <input type="hidden" name="group_id" value="${g.group_id}">
+            <div class="form-group">
+                <label class="form-label">Group Name *</label>
+                <input class="form-control" name="group_name" value="${escapeHtml(g.group_name)}">
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">Code</label>
+                    <input class="form-control" name="group_code" value="${escapeHtml(g.group_code||'')}">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Faculty</label>
+                    <select class="form-control" name="faculty_id" id="editGroupFac">${groupFacultyOpts}</select>
+                </div>
+            </div>
+        </form>
+        <div style="display:flex;gap:8px;margin-top:1rem">
+            <button class="btn btn-outline btn-full" onclick="openManageGroupsModal()">Back</button>
+            <button class="btn btn-primary btn-full" onclick="submitEditGroup()"><i class="fas fa-save"></i> Save</button>
+        </div>`);
+    const sel = document.getElementById('editGroupFac');
+    if (sel) sel.value = g.faculty_id || '';
+}
+
+function submitEditGroup() {
+    const form = document.getElementById('editGroupForm');
+    const fd = new FormData(form);
+    fd.append('action','edit');
+    if (!fd.get('group_name').trim()) { showToast('Group name is required.','error'); return; }
+    fetch('/arams/api/manage_groups.php', { method:'POST', body: fd })
+        .then(r => r.json())
+        .then(res => {
+            showToast(res.message, res.success?'success':'error');
+            if (res.success) openManageGroupsModal();
+        });
+}
+
+function toggleGroup(id, active) {
+    const fd = new FormData();
+    fd.append('action','toggle');
+    fd.append('group_id', id);
+    fd.append('is_active', active);
+    fetch('/arams/api/manage_groups.php', { method:'POST', body: fd })
+        .then(r => r.json())
+        .then(res => { showToast(res.message, res.success?'success':'error'); if (res.success) loadGroupsList(); });
 }
 </script>
 
