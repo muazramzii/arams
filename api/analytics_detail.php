@@ -69,7 +69,7 @@ if ($wantFacultySummary) {
             JOIN tbl_research_data rd ON {$alias}.data_id = rd.data_id
             JOIN tbl_lecturer l       ON l.lecturer_id   = rd.lecturer_id
             JOIN tbl_faculty f        ON f.faculty_id    = l.faculty_id
-            WHERE rd.status='Approved' AND {$alias}.{$col} = ?
+            WHERE rd.status='Approved' AND rd.is_deleted=0 AND {$alias}.{$col} = ?
             GROUP BY f.faculty_id, f.faculty_code, f.faculty_name
             ORDER BY cnt DESC, f.faculty_name";
     $stmt = $db->prepare($sql);
@@ -127,7 +127,7 @@ if ($kind === 'publication') {
             FROM tbl_publication p
             JOIN tbl_research_data rd ON p.data_id=rd.data_id
             JOIN tbl_lecturer l       ON l.lecturer_id=rd.lecturer_id
-            WHERE rd.status='Approved' AND p.{$col} = ?{$scopeSql}
+            WHERE rd.status='Approved' AND rd.is_deleted=0 AND p.{$col} = ?{$scopeSql}
             ORDER BY l.full_name, p.pub_year DESC, p.title";
 } else {
     $sql = "SELECT l.full_name AS lecturer_name, l.title AS lecturer_title,
@@ -136,7 +136,7 @@ if ($kind === 'publication') {
             FROM tbl_grant g
             JOIN tbl_research_data rd ON g.data_id=rd.data_id
             JOIN tbl_lecturer l       ON l.lecturer_id=rd.lecturer_id
-            WHERE rd.status='Approved' AND g.{$col} = ?{$scopeSql}
+            WHERE rd.status='Approved' AND rd.is_deleted=0 AND g.{$col} = ?{$scopeSql}
             ORDER BY l.full_name, g.grant_title";
 }
 
