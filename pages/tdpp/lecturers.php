@@ -11,8 +11,8 @@ $facId = $tdpp['faculty_id'];
 
 $lecturers = $db->prepare(
     "SELECT l.*, u.email,
-        (SELECT COUNT(*) FROM tbl_publication p JOIN tbl_research_data rd ON p.data_id=rd.data_id WHERE rd.lecturer_id=l.lecturer_id AND rd.status='Approved') AS pubs,
-        (SELECT COUNT(*) FROM tbl_grant g JOIN tbl_research_data rd ON g.data_id=rd.data_id WHERE rd.lecturer_id=l.lecturer_id AND rd.status='Approved') AS grants,
+        (SELECT COUNT(*) FROM tbl_publication p JOIN tbl_research_data rd ON p.data_id=rd.data_id WHERE rd.lecturer_id=l.lecturer_id AND rd.status='Approved' AND rd.is_deleted=0) AS pubs,
+        (SELECT COUNT(*) FROM tbl_grant g JOIN tbl_research_data rd ON g.data_id=rd.data_id WHERE rd.lecturer_id=l.lecturer_id AND rd.status='Approved' AND rd.is_deleted=0) AS grants,
         (SELECT COUNT(*) FROM tbl_kpi_task kt WHERE kt.lecturer_id=l.lecturer_id) AS tasks,
         (SELECT COUNT(*) FROM tbl_kpi_task kt WHERE kt.lecturer_id=l.lecturer_id AND kt.status IN ('Completed','Completed (Late)')) AS done
      FROM tbl_lecturer l

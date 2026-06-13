@@ -30,7 +30,7 @@ $pubTrend = $db->prepare(
      FROM tbl_publication p
      JOIN tbl_research_data rd ON p.data_id=rd.data_id
      JOIN tbl_lecturer l ON l.lecturer_id=rd.lecturer_id
-     WHERE rd.status='Approved' AND l.faculty_id=? AND p.pub_year >= YEAR(NOW())-5
+     WHERE rd.status='Approved' AND rd.is_deleted=0 AND l.faculty_id=? AND p.pub_year >= YEAR(NOW())-5
      GROUP BY p.pub_year ORDER BY p.pub_year"
 );
 $pubTrend->execute([$facId]); $pubTrend = $pubTrend->fetchAll();
@@ -39,7 +39,7 @@ $quartileDist = $db->prepare(
     "SELECT quartile, COUNT(*) AS cnt FROM tbl_publication p
      JOIN tbl_research_data rd ON p.data_id=rd.data_id
      JOIN tbl_lecturer l ON l.lecturer_id=rd.lecturer_id
-     WHERE rd.status='Approved' AND l.faculty_id=? GROUP BY quartile"
+     WHERE rd.status='Approved' AND rd.is_deleted=0 AND l.faculty_id=? GROUP BY quartile"
 );
 $quartileDist->execute([$facId]); $quartileDist = $quartileDist->fetchAll();
 
@@ -47,7 +47,7 @@ $pubTypes = $db->prepare(
     "SELECT pub_type, COUNT(*) AS cnt FROM tbl_publication p
      JOIN tbl_research_data rd ON p.data_id=rd.data_id
      JOIN tbl_lecturer l ON l.lecturer_id=rd.lecturer_id
-     WHERE rd.status='Approved' AND l.faculty_id=? GROUP BY pub_type ORDER BY cnt DESC"
+     WHERE rd.status='Approved' AND rd.is_deleted=0 AND l.faculty_id=? GROUP BY pub_type ORDER BY cnt DESC"
 );
 $pubTypes->execute([$facId]); $pubTypes = $pubTypes->fetchAll();
 
@@ -55,7 +55,7 @@ $grantCats = $db->prepare(
     "SELECT grant_category, COUNT(*) AS cnt FROM tbl_grant g
      JOIN tbl_research_data rd ON g.data_id=rd.data_id
      JOIN tbl_lecturer l ON l.lecturer_id=rd.lecturer_id
-     WHERE rd.status='Approved' AND l.faculty_id=? GROUP BY grant_category ORDER BY cnt DESC"
+     WHERE rd.status='Approved' AND rd.is_deleted=0 AND l.faculty_id=? GROUP BY grant_category ORDER BY cnt DESC"
 );
 $grantCats->execute([$facId]); $grantCats = $grantCats->fetchAll();
 
@@ -63,7 +63,7 @@ $grantRoles = $db->prepare(
     "SELECT role, COUNT(*) AS cnt FROM tbl_grant g
      JOIN tbl_research_data rd ON g.data_id=rd.data_id
      JOIN tbl_lecturer l ON l.lecturer_id=rd.lecturer_id
-     WHERE rd.status='Approved' AND l.faculty_id=? GROUP BY role ORDER BY cnt DESC"
+     WHERE rd.status='Approved' AND rd.is_deleted=0 AND l.faculty_id=? GROUP BY role ORDER BY cnt DESC"
 );
 $grantRoles->execute([$facId]); $grantRoles = $grantRoles->fetchAll();
 

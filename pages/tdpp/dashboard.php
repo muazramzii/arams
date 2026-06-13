@@ -26,11 +26,11 @@ $totals = $db->prepare(
         (SELECT COUNT(*) FROM tbl_publication p
          JOIN tbl_research_data rd ON p.data_id=rd.data_id
          JOIN tbl_lecturer l ON l.lecturer_id=rd.lecturer_id
-         WHERE rd.status='Approved' AND l.faculty_id=?) AS total_pubs,
+         WHERE rd.status='Approved' AND rd.is_deleted=0 AND l.faculty_id=?) AS total_pubs,
         (SELECT COUNT(*) FROM tbl_grant g
          JOIN tbl_research_data rd ON g.data_id=rd.data_id
          JOIN tbl_lecturer l ON l.lecturer_id=rd.lecturer_id
-         WHERE rd.status='Approved' AND l.faculty_id=?) AS total_grants,
+         WHERE rd.status='Approved' AND rd.is_deleted=0 AND l.faculty_id=?) AS total_grants,
         (SELECT COUNT(*) FROM tbl_lecturer WHERE faculty_id=?) AS total_lecturers,
         (SELECT COUNT(*) FROM tbl_kpi_task kt
          JOIN tbl_tdpp t ON t.tdpp_id=kt.tdpp_id WHERE t.faculty_id=?) AS total_tasks"
@@ -72,7 +72,7 @@ $topLect = $db->prepare(
     "SELECT l.full_name, l.staff_no,
             (SELECT COUNT(*) FROM tbl_publication p
              JOIN tbl_research_data rd ON p.data_id=rd.data_id
-             WHERE rd.lecturer_id=l.lecturer_id AND rd.status='Approved') AS pubs,
+             WHERE rd.lecturer_id=l.lecturer_id AND rd.status='Approved' AND rd.is_deleted=0) AS pubs,
             (SELECT COUNT(*) FROM tbl_kpi_task kt
              WHERE kt.lecturer_id=l.lecturer_id AND kt.status IN ('Completed','Completed (Late)')) AS done_tasks
      FROM tbl_lecturer l
