@@ -129,7 +129,11 @@ $grantRoleColors = ['#0B3C5D','#1B998B','#f59e0b'];
 
 // ── Allowed ENUM values (match DB schema) ─────────────────
 $PUB_TYPES   = ['Journal Article','Conference Paper','Book','Book Chapter','Patent','Report','Others'];
-$GRANT_CATS  = ['FRGS','PRGS','TRGS','UTHM Internal (VoT)','Industry','Consultancy','International','Others'];
+$GRANT_CATS  = ['Tier 1','RE-GG','Contract','GPPS','GPP','ICI','UTHM Internal (VoT)',
+                'Geran Tanpa Dana (X)','FRGS','PRGS','TRGS','LRGS','Geran Kontrak Kementerian',
+                'Lain-Lain Geran Kebangsaan','KKP','PPRN','Sepadan RESIP','Sepadan MTUN',
+                'International','NGO','Industries','Others'];
+$GRANT_LEVELS = ['Universiti','National','International','NGO','Industries'];
 $IP_TYPES    = ['Patent','Copyright','Trademark','Industrial Design','Trade Secret','Others'];
 $RGC_OPTS    = ['','CoE','CoR','Focus Group'];
 
@@ -550,9 +554,12 @@ body.edit-mode .view-only{display:none}
                     <input class="inline-input" style="width:120px" placeholder="Funder"
                            data-grantfunder="<?= $g['grant_id'] ?>"
                            value="<?= htmlspecialchars($g['funder'] ?? '') ?>">
-                    <input class="inline-input" style="width:90px" placeholder="Level"
-                           data-grantlevel="<?= $g['grant_id'] ?>"
-                           value="<?= htmlspecialchars($g['grant_level'] ?? '') ?>">
+                    <select class="inline-select" style="width:110px" data-grantlevel="<?= $g['grant_id'] ?>">
+                        <option value="">— Level —</option>
+                        <?php foreach ($GRANT_LEVELS as $lv): ?>
+                        <option value="<?= $lv ?>" <?= $lv === ($g['grant_level'] ?? '') ? 'selected' : '' ?>><?= $lv ?></option>
+                        <?php endforeach; ?>
+                    </select>
                     <select class="inline-select" data-grantcat="<?= $g['grant_id'] ?>">
                         <?php foreach ($GRANT_CATS as $o): ?>
                         <option value="<?= $o ?>" <?= $o === $g['grant_category'] ? 'selected' : '' ?>><?= $o ?></option>
@@ -735,7 +742,7 @@ function savePub(btn, id){
 function saveGrant(btn, id){
     post({type:'grant', id:id,
         funder: document.querySelector('input[data-grantfunder="'+id+'"]').value,
-        grant_level: document.querySelector('input[data-grantlevel="'+id+'"]').value,
+        grant_level: document.querySelector('select[data-grantlevel="'+id+'"]').value,
         grant_category: document.querySelector('select[data-grantcat="'+id+'"]').value
     }, 'tick_grant_'+id, btn);
 }
@@ -745,4 +752,4 @@ function saveIp(btn, id){
 }
 </script>
 
-<?php require_once __DIR__ . '/../../includes/footer.php'; ?> 
+<?php require_once __DIR__ . '/../../includes/footer.php'; ?>
