@@ -54,7 +54,7 @@ function countMatchingItems(PDO $db, int $lecturerId, array $task): int
         case 'Publication':
             $sql = "SELECT COUNT(*) FROM tbl_publication p
                     JOIN tbl_research_data rd ON p.data_id=rd.data_id
-                    WHERE rd.lecturer_id=? AND rd.status='Approved'";
+                    WHERE rd.lecturer_id=? AND rd.status='Approved' AND rd.is_deleted=0";
             $params = [$lecturerId];
             if ($task['criteria_quartile'] !== 'Any') {
                 $sql .= " AND p.quartile=?"; $params[] = $task['criteria_quartile'];
@@ -67,7 +67,7 @@ function countMatchingItems(PDO $db, int $lecturerId, array $task): int
         case 'Grant':
             $sql = "SELECT COUNT(*) FROM tbl_grant g
                     JOIN tbl_research_data rd ON g.data_id=rd.data_id
-                    WHERE rd.lecturer_id=? AND rd.status='Approved'";
+                    WHERE rd.lecturer_id=? AND rd.status='Approved' AND rd.is_deleted=0";
             $params = [$lecturerId];
             if ($task['criteria_grant_level'] !== 'Any') {
                 $sql .= " AND g.grant_level=?"; $params[] = $task['criteria_grant_level'];
@@ -80,14 +80,14 @@ function countMatchingItems(PDO $db, int $lecturerId, array $task): int
         case 'H-Index':
             $sql = "SELECT COUNT(*) FROM tbl_hindex h
                     JOIN tbl_research_data rd ON h.data_id=rd.data_id
-                    WHERE rd.lecturer_id=? AND rd.status='Approved'";
+                    WHERE rd.lecturer_id=? AND rd.status='Approved' AND rd.is_deleted=0";
             $params = [$lecturerId];
             break;
 
         case 'Research Income':
             $sql = "SELECT COUNT(*) FROM tbl_research_income i
                     JOIN tbl_research_data rd ON i.data_id=rd.data_id
-                    WHERE rd.lecturer_id=? AND rd.status='Approved'";
+                    WHERE rd.lecturer_id=? AND rd.status='Approved' AND rd.is_deleted=0";
             $params = [$lecturerId];
             if ((float)$task['criteria_min_amount'] > 0) {
                 $sql .= " AND i.amount >= ?"; $params[] = $task['criteria_min_amount'];
@@ -97,7 +97,7 @@ function countMatchingItems(PDO $db, int $lecturerId, array $task): int
         case 'IP':
             $sql = "SELECT COUNT(*) FROM tbl_ip_record ip
                     JOIN tbl_research_data rd ON ip.data_id=rd.data_id
-                    WHERE rd.lecturer_id=? AND rd.status='Approved'";
+                    WHERE rd.lecturer_id=? AND rd.status='Approved' AND rd.is_deleted=0";
             $params = [$lecturerId];
             break;
 
