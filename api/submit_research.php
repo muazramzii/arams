@@ -27,11 +27,11 @@ try {
         case 'publication':
             $st = $db->prepare(
                 "INSERT INTO tbl_publication
-                 (title, authors, author_role, student_author, journal_name, issn, pub_year,
+                 (title, authors, author_role, student_author, journal_name, country, issn, pub_year,
                   volume, issue, pages, pub_type, indexing_type, quartile, impact_factor,
                   doi, url, national_collaboration, international_collaboration,
                   industries_collaboration, data_id)
-                 VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
+                 VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
             );
             $st->execute([
                 sanitize($_POST['title']                    ?? ''),
@@ -39,6 +39,7 @@ try {
                 $_POST['author_role']                       ?? 'Co-Author',
                 (int)($_POST['student_author']              ?? 0),
                 sanitize($_POST['journal_name']             ?? ''),
+                sanitize($_POST['country']                  ?? ''),
                 sanitize($_POST['issn']                     ?? ''),
                 (int)($_POST['pub_year']                    ?? date('Y')),
                 sanitize($_POST['volume']                   ?? ''),
