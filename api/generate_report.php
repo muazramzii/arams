@@ -46,7 +46,7 @@ switch ($type) {
                   JOIN tbl_research_data rd ON p.data_id = rd.data_id
                   JOIN tbl_lecturer l ON l.lecturer_id = rd.lecturer_id
                   JOIN tbl_faculty  f ON f.faculty_id  = l.faculty_id
-                  WHERE rd.status = 'Approved' $yearWhere $facWhere
+                  WHERE rd.status = 'Approved' AND rd.is_deleted=0 $yearWhere $facWhere
                   ORDER BY p.pub_year DESC, l.full_name";
         $st = $db->prepare($sql); $st->execute(); $data = $st->fetchAll();
         foreach ($data as $i => $r) {
@@ -66,7 +66,7 @@ switch ($type) {
                   JOIN tbl_research_data rd ON g.data_id = rd.data_id
                   JOIN tbl_lecturer l ON l.lecturer_id = rd.lecturer_id
                   JOIN tbl_faculty  f ON f.faculty_id  = l.faculty_id
-                  WHERE rd.status = 'Approved' $yearWhereG $facWhere
+                  WHERE rd.status = 'Approved' AND rd.is_deleted=0 $yearWhereG $facWhere
                   ORDER BY g.start_date DESC";
         $st = $db->prepare($sql); $st->execute(); $data = $st->fetchAll();
         foreach ($data as $i => $r) {
@@ -86,7 +86,7 @@ switch ($type) {
                   JOIN tbl_research_data rd ON h.data_id = rd.data_id
                   JOIN tbl_lecturer l ON l.lecturer_id = rd.lecturer_id
                   JOIN tbl_faculty  f ON f.faculty_id  = l.faculty_id
-                  WHERE rd.status = 'Approved' $facWhere
+                  WHERE rd.status = 'Approved' AND rd.is_deleted=0 $facWhere
                   ORDER BY h.record_year DESC, l.full_name";
         $st = $db->prepare($sql); $st->execute(); $data = $st->fetchAll();
         foreach ($data as $i => $r) {
@@ -169,7 +169,7 @@ switch ($type) {
                   JOIN tbl_research_data rd ON ip.data_id = rd.data_id
                   JOIN tbl_lecturer l ON l.lecturer_id = rd.lecturer_id
                   JOIN tbl_faculty  f ON f.faculty_id  = l.faculty_id
-                  WHERE rd.status = 'Approved' $facWhere
+                  WHERE rd.status = 'Approved' AND rd.is_deleted=0 $facWhere
                   ORDER BY rec_year DESC";
         $st = $db->prepare($sql); $st->execute(); $data = $st->fetchAll();
         foreach ($data as $i => $r) {
