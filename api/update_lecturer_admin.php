@@ -73,7 +73,10 @@ try {
 
     if ($type === 'grant') {
         if (!$id) { echo json_encode(['success'=>false,'message'=>'Invalid grant']); exit; }
-        $allowedCat = ['FRGS','PRGS','TRGS','UTHM Internal (VoT)','Industry','Consultancy','International','Others'];
+        $allowedCat = ['Tier 1','RE-GG','Contract','GPPS','GPP','ICI','UTHM Internal (VoT)',
+                       'Geran Tanpa Dana (X)','FRGS','PRGS','TRGS','LRGS','Geran Kontrak Kementerian',
+                       'Lain-Lain Geran Kebangsaan','KKP','PPRN','Sepadan RESIP','Sepadan MTUN',
+                       'International','NGO','Industries','Others'];
         $funder = trim($body['funder'] ?? '');
         $level  = trim($body['grant_level'] ?? '');
         $cat    = $body['grant_category'] ?? '';
