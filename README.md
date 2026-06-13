@@ -55,7 +55,7 @@ ARAMS supports three user roles, each with a dedicated portal:
 
 ## Data model (overview)
 
-All research entries (`Tbl_Publication`, `Tbl_Grant`, `Tbl_HIndex`, `Tbl_Research_Income`, IP records) link to a parent `Tbl_Research_Data` row, which carries the submission `status` (Pending / Approved / Rejected). KPI figures and charts are derived from approved records, aggregated through the `vw_lecturer_kpi` view. Lecturers belong to faculties (`Tbl_Faculty`); TDPP accounts are mapped to a faculty via `Tbl_TDPP`.
+All research entries (`tbl_publication`, `tbl_grant`, `tbl_hindex`, `tbl_research_income`, IP records) link to a parent `tbl_research_data` row, which carries the submission `status` (Pending / Approved / Rejected). KPI figures and charts are derived from approved records, aggregated through the `vw_lecturer_kpi` view. Lecturers belong to faculties (`tbl_faculty`); TDPP accounts are mapped to a faculty via `tbl_tdpp`.
 
 ## Local Setup
 

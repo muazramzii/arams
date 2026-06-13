@@ -11,21 +11,21 @@ $db = getDB();
 // Recent reports
 $recentReports = $db->query(
     "SELECT r.*, a.name AS admin_name
-     FROM Tbl_Report r JOIN Tbl_Admin a ON a.admin_id = r.admin_id
+     FROM tbl_report r JOIN tbl_admin a ON a.admin_id = r.admin_id
      ORDER BY r.date_generated DESC LIMIT 10"
 )->fetchAll();
 
 // Stats
 $stats = $db->query(
-    "SELECT COUNT(*) AS total FROM Tbl_Report"
+    "SELECT COUNT(*) AS total FROM tbl_report"
 )->fetchColumn();
 
-$faculties = $db->query("SELECT faculty_id, faculty_code, faculty_name FROM Tbl_Faculty ORDER BY faculty_code")->fetchAll();
+$faculties = $db->query("SELECT faculty_id, faculty_code, faculty_name FROM tbl_faculty ORDER BY faculty_code")->fetchAll();
 
 $allLecturers = $db->query(
     "SELECT l.lecturer_id, l.full_name, l.staff_no, f.faculty_code
-     FROM Tbl_Lecturer l
-     JOIN Tbl_Faculty f ON f.faculty_id = l.faculty_id
+     FROM tbl_lecturer l
+     JOIN tbl_faculty f ON f.faculty_id = l.faculty_id
      ORDER BY l.full_name"
 )->fetchAll();
 ?>
@@ -126,7 +126,7 @@ $allLecturers = $db->query(
             <div style="font-size:28px;margin-bottom:.5rem"><i class="fas fa-calendar-alt"></i></div>
             <h3 style="font-size:15px;margin:0 0 1rem;font-family:inherit">Report Statistics</h3>
             <?php
-            $monthCount = $db->query("SELECT COUNT(*) FROM Tbl_Report WHERE date_generated >= DATE_FORMAT(NOW(),'%Y-%m-01')")->fetchColumn();
+            $monthCount = $db->query("SELECT COUNT(*) FROM tbl_report WHERE date_generated >= DATE_FORMAT(NOW(),'%Y-%m-01')")->fetchColumn();
             ?>
             <div style="font-size:13px;display:flex;justify-content:space-between;margin-bottom:6px;opacity:.9">
                 <span>Generated this month</span><strong><?= $monthCount ?></strong>
@@ -136,7 +136,7 @@ $allLecturers = $db->query(
             </div>
             <div style="font-size:13px;display:flex;justify-content:space-between;opacity:.9">
                 <span>Total lecturers</span>
-                <strong><?= $db->query("SELECT COUNT(*) FROM Tbl_Lecturer")->fetchColumn() ?></strong>
+                <strong><?= $db->query("SELECT COUNT(*) FROM tbl_lecturer")->fetchColumn() ?></strong>
             </div>
         </div>
 

@@ -16,11 +16,11 @@ $taskId = (int)($body['task_id'] ?? 0);
 if (!$taskId) { echo json_encode(['success'=>false,'message'=>'Invalid task']); exit; }
 
 // Verify this task belongs to this TDPP
-$tdpp = $db->prepare("SELECT tdpp_id FROM Tbl_TDPP WHERE user_id=?");
+$tdpp = $db->prepare("SELECT tdpp_id FROM tbl_tdpp WHERE user_id=?");
 $tdpp->execute([$_SESSION['user_id']]);
 $tdppId = (int)$tdpp->fetchColumn();
 
-$chk = $db->prepare("SELECT tdpp_id FROM Tbl_KPI_Task WHERE task_id=?");
+$chk = $db->prepare("SELECT tdpp_id FROM tbl_kpi_task WHERE task_id=?");
 $chk->execute([$taskId]);
 $owner = (int)$chk->fetchColumn();
 
@@ -28,5 +28,5 @@ if ($owner !== $tdppId) {
     echo json_encode(['success'=>false,'message'=>'Not your task']); exit;
 }
 
-$db->prepare("DELETE FROM Tbl_KPI_Task WHERE task_id=?")->execute([$taskId]);
+$db->prepare("DELETE FROM tbl_kpi_task WHERE task_id=?")->execute([$taskId]);
 echo json_encode(['success'=>true]);

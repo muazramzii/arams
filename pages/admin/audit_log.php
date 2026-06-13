@@ -22,11 +22,11 @@ $logs = $db->query(
             al.details, al.logged_at,
             COALESCE(l.full_name, a.name, t.full_name, u.email) AS actor_name,
             u.role AS actor_role
-     FROM Tbl_Audit_Log al
-     LEFT JOIN Tbl_User     u ON u.user_id = al.user_id
-     LEFT JOIN Tbl_Lecturer l ON l.user_id = al.user_id
-     LEFT JOIN Tbl_Admin    a ON a.user_id = al.user_id
-     LEFT JOIN Tbl_TDPP     t ON t.user_id = al.user_id
+     FROM tbl_audit_log al
+     LEFT JOIN tbl_user     u ON u.user_id = al.user_id
+     LEFT JOIN tbl_lecturer l ON l.user_id = al.user_id
+     LEFT JOIN tbl_admin    a ON a.user_id = al.user_id
+     LEFT JOIN tbl_tdpp     t ON t.user_id = al.user_id
      ORDER BY al.logged_at DESC
      LIMIT 500"
 )->fetchAll();

@@ -12,8 +12,8 @@ $db = getDB();
 // Get this TDPP's faculty
 $tdpp = $db->prepare(
     "SELECT t.*, f.faculty_code, f.faculty_name
-     FROM Tbl_TDPP t
-     JOIN Tbl_Faculty f ON f.faculty_id = t.faculty_id
+     FROM tbl_tdpp t
+     JOIN tbl_faculty f ON f.faculty_id = t.faculty_id
      WHERE t.user_id = ?"
 );
 $tdpp->execute([$_SESSION['user_id']]);
@@ -23,17 +23,17 @@ $facId = $tdpp['faculty_id'];
 // Faculty-scoped KPIs
 $totals = $db->prepare(
     "SELECT
-        (SELECT COUNT(*) FROM Tbl_Publication p
-         JOIN Tbl_Research_Data rd ON p.data_id=rd.data_id
-         JOIN Tbl_Lecturer l ON l.lecturer_id=rd.lecturer_id
+        (SELECT COUNT(*) FROM tbl_publication p
+         JOIN tbl_research_data rd ON p.data_id=rd.data_id
+         JOIN tbl_lecturer l ON l.lecturer_id=rd.lecturer_id
          WHERE rd.status='Approved' AND l.faculty_id=?) AS total_pubs,
-        (SELECT COUNT(*) FROM Tbl_Grant g
-         JOIN Tbl_Research_Data rd ON g.data_id=rd.data_id
-         JOIN Tbl_Lecturer l ON l.lecturer_id=rd.lecturer_id
+        (SELECT COUNT(*) FROM tbl_grant g
+         JOIN tbl_research_data rd ON g.data_id=rd.data_id
+         JOIN tbl_lecturer l ON l.lecturer_id=rd.lecturer_id
          WHERE rd.status='Approved' AND l.faculty_id=?) AS total_grants,
-        (SELECT COUNT(*) FROM Tbl_Lecturer WHERE faculty_id=?) AS total_lecturers,
-        (SELECT COUNT(*) FROM Tbl_KPI_Task kt
-         JOIN Tbl_TDPP t ON t.tdpp_id=kt.tdpp_id WHERE t.faculty_id=?) AS total_tasks"
+        (SELECT COUNT(*) FROM tbl_lecturer WHERE faculty_id=?) AS total_lecturers,
+        (SELECT COUNT(*) FROM tbl_kpi_task kt
+         JOIN tbl_tdpp t ON t.tdpp_id=kt.tdpp_id WHERE t.faculty_id=?) AS total_tasks"
 );
 $totals->execute([$facId, $facId, $facId, $facId]);
 $totals = $totals->fetch();
@@ -41,8 +41,8 @@ $totals = $totals->fetch();
 // KPI Task status breakdown
 $taskStats = $db->prepare(
     "SELECT kt.status, COUNT(*) AS cnt
-     FROM Tbl_KPI_Task kt
-     JOIN Tbl_TDPP t ON t.tdpp_id = kt.tdpp_id
+     FROM tbl_kpi_task kt
+     JOIN tbl_tdpp t ON t.tdpp_id = kt.tdpp_id
      WHERE t.faculty_id = ?
      GROUP BY kt.status"
 );
@@ -58,9 +58,9 @@ $completionRate = $totalT > 0 ? round($completed / $totalT * 100) : 0;
 // Recent tasks
 $recentTasks = $db->prepare(
     "SELECT kt.*, l.full_name AS lecturer_name
-     FROM Tbl_KPI_Task kt
-     JOIN Tbl_TDPP t ON t.tdpp_id = kt.tdpp_id
-     JOIN Tbl_Lecturer l ON l.lecturer_id = kt.lecturer_id
+     FROM tbl_kpi_task kt
+     JOIN tbl_tdpp t ON t.tdpp_id = kt.tdpp_id
+     JOIN tbl_lecturer l ON l.lecturer_id = kt.lecturer_id
      WHERE t.faculty_id = ?
      ORDER BY kt.created_at DESC LIMIT 8"
 );
@@ -70,12 +70,12 @@ $recentTasks = $recentTasks->fetchAll();
 // Top lecturers in faculty
 $topLect = $db->prepare(
     "SELECT l.full_name, l.staff_no,
-            (SELECT COUNT(*) FROM Tbl_Publication p
-             JOIN Tbl_Research_Data rd ON p.data_id=rd.data_id
+            (SELECT COUNT(*) FROM tbl_publication p
+             JOIN tbl_research_data rd ON p.data_id=rd.data_id
              WHERE rd.lecturer_id=l.lecturer_id AND rd.status='Approved') AS pubs,
-            (SELECT COUNT(*) FROM Tbl_KPI_Task kt
+            (SELECT COUNT(*) FROM tbl_kpi_task kt
              WHERE kt.lecturer_id=l.lecturer_id AND kt.status IN ('Completed','Completed (Late)')) AS done_tasks
-     FROM Tbl_Lecturer l
+     FROM tbl_lecturer l
      WHERE l.faculty_id = ?
      ORDER BY pubs DESC LIMIT 5"
 );

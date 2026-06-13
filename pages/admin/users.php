@@ -10,17 +10,24 @@ $users = $db->query(
             COALESCE(l.full_name, a.name, t.full_name) AS full_name,
             COALESCE(f.faculty_code, ft.faculty_code, 'Admin') AS faculty_code,
             l.staff_no, l.lecturer_id
-     FROM Tbl_User u
-     LEFT JOIN Tbl_Lecturer l  ON l.user_id  = u.user_id
-     LEFT JOIN Tbl_Admin    a  ON a.user_id  = u.user_id
-     LEFT JOIN Tbl_TDPP     t  ON t.user_id  = u.user_id
-     LEFT JOIN Tbl_Faculty  f  ON f.faculty_id  = l.faculty_id
-     LEFT JOIN Tbl_Faculty  ft ON ft.faculty_id = t.faculty_id
+     FROM tbl_user u
+     LEFT JOIN tbl_lecturer l  ON l.user_id  = u.user_id
+     LEFT JOIN tbl_admin    a  ON a.user_id  = u.user_id
+     LEFT JOIN tbl_tdpp     t  ON t.user_id  = u.user_id
+     LEFT JOIN tbl_faculty  f  ON f.faculty_id  = l.faculty_id
+     LEFT JOIN tbl_faculty  ft ON ft.faculty_id = t.faculty_id
      ORDER BY u.role DESC, u.created_at ASC"
 )->fetchAll();
 
 $faculties = $db->query(
-    "SELECT faculty_id, faculty_code, faculty_name FROM Tbl_Faculty ORDER BY faculty_code"
+    "SELECT faculty_id, faculty_code, faculty_name FROM tbl_faculty ORDER BY faculty_code"
+)->fetchAll();
+
+$researchGroups = $db->query(
+    "SELECT group_id, group_code, group_name, faculty_id
+     FROM tbl_research_group
+     WHERE is_active = 1
+     ORDER BY group_name"
 )->fetchAll();
 ?>
 
@@ -153,6 +160,13 @@ const facultyOpts = `
     <?php endforeach; ?>
 `;
 
+const groupOpts = `
+    <option value="">— Select Research Group —</option>
+    <?php foreach ($researchGroups as $g): ?>
+    <option value="<?= $g['group_id'] ?>"><?= htmlspecialchars($g['group_name']) ?></option>
+    <?php endforeach; ?>
+`;
+
 function eyeBtn(inputId, iconId) {
     return `<button type="button"
         onclick="togglePwField('${inputId}','${iconId}')"
@@ -231,6 +245,40 @@ function openCreateUserModal() {
                     ${facultyOpts}
                 </select>
             </div>
+            <div id="researchGroupFields">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Research Group Category</label>
+                        <select class="form-control" name="research_group_category"
+                                onchange="toggleGroupName(this.value)">
+                            <option value="">— Select —</option>
+                            <option value="FG">FG (Focus Group)</option>
+                            <option value="External">External</option>
+                            <option value="Others">Others</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Status Researcher</label>
+                        <select class="form-control" name="status_researcher">
+                            <option value="">— Select —</option>
+                            <option>Principal Researcher</option>
+                            <option>Head of the Group</option>
+                            <option>Others</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group" id="groupNameDropdownWrap" style="display:none">
+                    <label class="form-label">Research Group Name</label>
+                    <select class="form-control" name="research_group_id" id="groupNameDropdown">
+                        ${groupOpts}
+                    </select>
+                </div>
+                <div class="form-group" id="groupNameTextWrap" style="display:none">
+                    <label class="form-label">Research Group Name</label>
+                    <input class="form-control" name="research_centre_other" id="groupNameText"
+                           placeholder="Type the group / centre name">
+                </div>
+            </div>
             <div class="form-group">
                 <label class="form-label">Password *</label>
                 ${pwField('cPw','cPwIcon','password','Minimum 8 characters')}
@@ -250,8 +298,30 @@ function openCreateUserModal() {
 }
 
 function toggleFacultyField(role) {
-    const f = document.getElementById('facultyField');
-    if (f) f.style.display = role === 'Admin' ? 'none' : 'block';
+    const f  = document.getElementById('facultyField');
+    const rg = document.getElementById('researchGroupFields');
+    const isLec = role !== 'Admin';
+    if (f)  f.style.display  = isLec ? 'block' : 'none';
+    if (rg) rg.style.display = isLec ? 'block' : 'none';
+}
+
+function toggleGroupName(cat) {
+    const ddWrap = document.getElementById('groupNameDropdownWrap');
+    const txWrap = document.getElementById('groupNameTextWrap');
+    const ddSel  = document.getElementById('groupNameDropdown');
+    const txInp  = document.getElementById('groupNameText');
+    if (!ddWrap || !txWrap) return;
+    if (cat === 'FG') {
+        ddWrap.style.display = 'block'; txWrap.style.display = 'none';
+        if (txInp) txInp.value = '';
+    } else if (cat === 'External' || cat === 'Others') {
+        ddWrap.style.display = 'none'; txWrap.style.display = 'block';
+        if (ddSel) ddSel.value = '';
+    } else {
+        ddWrap.style.display = 'none'; txWrap.style.display = 'none';
+        if (ddSel) ddSel.value = '';
+        if (txInp) txInp.value = '';
+    }
 }
 
 function submitCreate() {

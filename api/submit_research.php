@@ -17,7 +17,7 @@ $db = getDB();
 $db->beginTransaction();
 try {
     // 1. Insert parent Research_Data row
-    $db->prepare("INSERT INTO Tbl_Research_Data (submission_date, status, lecturer_id)
+    $db->prepare("INSERT INTO tbl_research_data (submission_date, status, lecturer_id)
                   VALUES (CURDATE(), 'Pending', ?)")
        ->execute([$lecId]);
     $dataId = (int)$db->lastInsertId();
@@ -26,7 +26,7 @@ try {
     switch ($type) {
         case 'publication':
             $st = $db->prepare(
-                "INSERT INTO Tbl_Publication
+                "INSERT INTO tbl_publication
                  (title, authors, author_role, student_author, journal_name, issn, pub_year,
                   volume, issue, pages, pub_type, indexing_type, quartile, impact_factor,
                   doi, url, national_collaboration, international_collaboration,
@@ -59,7 +59,7 @@ try {
 
         case 'grant':
             $st = $db->prepare(
-                "INSERT INTO Tbl_Grant
+                "INSERT INTO tbl_grant
                  (grant_title, grant_code, funder, grant_category, grant_level,
                   role, amount, start_date, end_date, status, mygrants_id, data_id)
                  VALUES (?,?,?,?,?,?,?,?,?,?,?,?)"
@@ -82,7 +82,7 @@ try {
 
         case 'hindex':
             $st = $db->prepare(
-                "INSERT INTO Tbl_HIndex (record_year, hindex_value, citation_count, source, data_id)
+                "INSERT INTO tbl_hindex (record_year, hindex_value, citation_count, source, data_id)
                  VALUES (?,?,?,?,?)"
             );
             $st->execute([
@@ -96,7 +96,7 @@ try {
 
         case 'ip':
             $st = $db->prepare(
-                "INSERT INTO Tbl_IP_Record
+                "INSERT INTO tbl_ip_record
                  (ip_title, ip_type, ip_number, inventors, country, filing_date, grant_date, registration_status, data_id)
                  VALUES (?,?,?,?,?,?,?,?,?)"
             );
@@ -115,7 +115,7 @@ try {
 
         case 'income':
             $st = $db->prepare(
-                "INSERT INTO Tbl_Research_Income
+                "INSERT INTO tbl_research_income
                  (source, income_category, amount, year_received, data_id)
                  VALUES (?,?,?,?,?)"
             );
@@ -133,10 +133,10 @@ try {
     }
 
     // Notify admin
-    $db->prepare("INSERT INTO Tbl_Notification (user_id, message, data_id)
+    $db->prepare("INSERT INTO tbl_notification (user_id, message, data_id)
                   SELECT u.user_id, CONCAT('New ', ?, ' submission pending validation from ', l.full_name), ?
-                  FROM Tbl_Admin a JOIN Tbl_User u ON u.user_id = a.user_id
-                  JOIN Tbl_Lecturer l ON l.lecturer_id = ?")
+                  FROM tbl_admin a JOIN tbl_user u ON u.user_id = a.user_id
+                  JOIN tbl_lecturer l ON l.lecturer_id = ?")
        ->execute([ucfirst($type), $dataId, $lecId]);
 
     $db->commit();

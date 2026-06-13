@@ -42,10 +42,10 @@ switch ($type) {
         $cols  = ['#','Lecturer','Faculty','Title','Type','Indexing','Quartile','Year','Journal','DOI'];
         $sql   = "SELECT l.full_name, f.faculty_code, p.title, p.pub_type,
                          p.indexing_type, p.quartile, p.pub_year, p.journal_name, p.doi
-                  FROM Tbl_Publication p
-                  JOIN Tbl_Research_Data rd ON p.data_id = rd.data_id
-                  JOIN Tbl_Lecturer l ON l.lecturer_id = rd.lecturer_id
-                  JOIN Tbl_Faculty  f ON f.faculty_id  = l.faculty_id
+                  FROM tbl_publication p
+                  JOIN tbl_research_data rd ON p.data_id = rd.data_id
+                  JOIN tbl_lecturer l ON l.lecturer_id = rd.lecturer_id
+                  JOIN tbl_faculty  f ON f.faculty_id  = l.faculty_id
                   WHERE rd.status = 'Approved' $yearWhere $facWhere
                   ORDER BY p.pub_year DESC, l.full_name";
         $st = $db->prepare($sql); $st->execute(); $data = $st->fetchAll();
@@ -62,10 +62,10 @@ switch ($type) {
         $sql   = "SELECT l.full_name, f.faculty_code, g.grant_title, g.grant_code,
                          g.grant_category, g.grant_level, g.role, g.amount,
                          g.status, g.start_date, g.end_date
-                  FROM Tbl_Grant g
-                  JOIN Tbl_Research_Data rd ON g.data_id = rd.data_id
-                  JOIN Tbl_Lecturer l ON l.lecturer_id = rd.lecturer_id
-                  JOIN Tbl_Faculty  f ON f.faculty_id  = l.faculty_id
+                  FROM tbl_grant g
+                  JOIN tbl_research_data rd ON g.data_id = rd.data_id
+                  JOIN tbl_lecturer l ON l.lecturer_id = rd.lecturer_id
+                  JOIN tbl_faculty  f ON f.faculty_id  = l.faculty_id
                   WHERE rd.status = 'Approved' $yearWhereG $facWhere
                   ORDER BY g.start_date DESC";
         $st = $db->prepare($sql); $st->execute(); $data = $st->fetchAll();
@@ -82,10 +82,10 @@ switch ($type) {
         $cols  = ['#','Lecturer','Faculty','Year','H-Index','Citations','Source'];
         $sql   = "SELECT l.full_name, f.faculty_code, h.record_year,
                          h.hindex_value, h.citation_count, h.source
-                  FROM Tbl_HIndex h
-                  JOIN Tbl_Research_Data rd ON h.data_id = rd.data_id
-                  JOIN Tbl_Lecturer l ON l.lecturer_id = rd.lecturer_id
-                  JOIN Tbl_Faculty  f ON f.faculty_id  = l.faculty_id
+                  FROM tbl_hindex h
+                  JOIN tbl_research_data rd ON h.data_id = rd.data_id
+                  JOIN tbl_lecturer l ON l.lecturer_id = rd.lecturer_id
+                  JOIN tbl_faculty  f ON f.faculty_id  = l.faculty_id
                   WHERE rd.status = 'Approved' $facWhere
                   ORDER BY h.record_year DESC, l.full_name";
         $st = $db->prepare($sql); $st->execute(); $data = $st->fetchAll();
@@ -106,8 +106,8 @@ switch ($type) {
                          AVG(k.current_hindex) AS hindex,
                          SUM(k.total_income_rm) AS income
                   FROM vw_lecturer_kpi k
-                  JOIN Tbl_Lecturer l ON l.lecturer_id = k.lecturer_id
-                  JOIN Tbl_Faculty  f ON f.faculty_id  = l.faculty_id
+                  JOIN tbl_lecturer l ON l.lecturer_id = k.lecturer_id
+                  JOIN tbl_faculty  f ON f.faculty_id  = l.faculty_id
                   GROUP BY f.faculty_id ORDER BY pubs DESC";
         $st = $db->prepare($sql); $st->execute(); $data = $st->fetchAll();
         foreach ($data as $i => $r) {
@@ -126,8 +126,8 @@ switch ($type) {
                          k.total_grants, k.grants_as_pi,
                          k.current_hindex, k.total_citations, k.total_income_rm
                   FROM vw_lecturer_kpi k
-                  JOIN Tbl_Lecturer l ON l.lecturer_id = k.lecturer_id
-                  JOIN Tbl_Faculty  f ON f.faculty_id  = l.faculty_id
+                  JOIN tbl_lecturer l ON l.lecturer_id = k.lecturer_id
+                  JOIN tbl_faculty  f ON f.faculty_id  = l.faculty_id
                   $( $facultyId !== 'all' ? 'WHERE l.faculty_id = ' . (int)$facultyId : '' )
                   ORDER BY k.total_publications DESC";
         // Use proper conditional
@@ -137,8 +137,8 @@ switch ($type) {
                        k.total_grants, k.grants_as_pi,
                        k.current_hindex, k.total_citations, k.total_income_rm
                 FROM vw_lecturer_kpi k
-                JOIN Tbl_Lecturer l ON l.lecturer_id = k.lecturer_id
-                JOIN Tbl_Faculty  f ON f.faculty_id  = l.faculty_id
+                JOIN tbl_lecturer l ON l.lecturer_id = k.lecturer_id
+                JOIN tbl_faculty  f ON f.faculty_id  = l.faculty_id
                 $whereInd
                 ORDER BY k.total_publications DESC";
         $st = $db->prepare($sql); $st->execute(); $data = $st->fetchAll();
@@ -157,18 +157,18 @@ switch ($type) {
         $sql   = "SELECT l.full_name, f.faculty_code, 'Award' AS rec_type,
                          a.award_name AS rec_name, a.level AS rec_level,
                          a.award_year AS rec_year, a.organiser AS rec_org
-                  FROM Tbl_Award a
-                  JOIN Tbl_Lecturer l ON l.lecturer_id = a.lecturer_id
-                  JOIN Tbl_Faculty  f ON f.faculty_id  = l.faculty_id
+                  FROM tbl_award a
+                  JOIN tbl_lecturer l ON l.lecturer_id = a.lecturer_id
+                  JOIN tbl_faculty  f ON f.faculty_id  = l.faculty_id
                   $facWhere
                   UNION ALL
                   SELECT l.full_name, f.faculty_code, ip.ip_type AS rec_type,
                          ip.ip_title AS rec_name, ip.ip_type AS rec_level,
                          ip.filing_date AS rec_year, ip.status AS rec_org
-                  FROM Tbl_IP_Record ip
-                  JOIN Tbl_Research_Data rd ON ip.data_id = rd.data_id
-                  JOIN Tbl_Lecturer l ON l.lecturer_id = rd.lecturer_id
-                  JOIN Tbl_Faculty  f ON f.faculty_id  = l.faculty_id
+                  FROM tbl_ip_record ip
+                  JOIN tbl_research_data rd ON ip.data_id = rd.data_id
+                  JOIN tbl_lecturer l ON l.lecturer_id = rd.lecturer_id
+                  JOIN tbl_faculty  f ON f.faculty_id  = l.faculty_id
                   WHERE rd.status = 'Approved' $facWhere
                   ORDER BY rec_year DESC";
         $st = $db->prepare($sql); $st->execute(); $data = $st->fetchAll();
@@ -187,8 +187,8 @@ switch ($type) {
                          k.total_grants, k.grants_as_pi,
                          k.current_hindex, k.total_citations, k.total_income_rm
                   FROM vw_lecturer_kpi k
-                  JOIN Tbl_Lecturer l ON l.lecturer_id = k.lecturer_id
-                  JOIN Tbl_Faculty  f ON f.faculty_id  = l.faculty_id
+                  JOIN tbl_lecturer l ON l.lecturer_id = k.lecturer_id
+                  JOIN tbl_faculty  f ON f.faculty_id  = l.faculty_id
                   $( $facultyId !== 'all' ? 'WHERE l.faculty_id = ?' : '' )
                   ORDER BY k.total_publications DESC";
         $whereComp = $facultyId !== 'all' ? 'WHERE l.faculty_id = ' . (int)$facultyId : '';
@@ -197,8 +197,8 @@ switch ($type) {
                        k.total_grants, k.grants_as_pi,
                        k.current_hindex, k.total_citations, k.total_income_rm
                 FROM vw_lecturer_kpi k
-                JOIN Tbl_Lecturer l ON l.lecturer_id = k.lecturer_id
-                JOIN Tbl_Faculty  f ON f.faculty_id  = l.faculty_id
+                JOIN tbl_lecturer l ON l.lecturer_id = k.lecturer_id
+                JOIN tbl_faculty  f ON f.faculty_id  = l.faculty_id
                 $whereComp
                 ORDER BY k.total_publications DESC";
         $st = $db->prepare($sql); $st->execute(); $data = $st->fetchAll();
@@ -214,7 +214,7 @@ switch ($type) {
 
 // ── Save report record to DB ──────────────────────────────
 $db->prepare(
-    "INSERT INTO Tbl_Report (report_type, report_year, faculty_filter, format, admin_id)
+    "INSERT INTO tbl_report (report_type, report_year, faculty_filter, format, admin_id)
      VALUES (?,?,?,?,?)"
 )->execute([
     $title,
@@ -225,7 +225,7 @@ $db->prepare(
 ]);
 
 // ── Audit log ─────────────────────────────────────────────
-$db->prepare("INSERT INTO Tbl_Audit_Log (user_id, action, target_type, details) VALUES (?,?,?,?)")
+$db->prepare("INSERT INTO tbl_audit_log (user_id, action, target_type, details) VALUES (?,?,?,?)")
    ->execute([$user['user_id'], 'Generated Report', 'Report',
               "type=$type year=$year faculty=$facultyId format=$format"]);
 

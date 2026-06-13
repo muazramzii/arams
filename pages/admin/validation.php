@@ -16,8 +16,8 @@ $queue = $st->fetchAll();
 
 // Recent audit log
 $logs = $db->query(
-    "SELECT al.*, u.email FROM Tbl_Audit_Log al
-     JOIN Tbl_User u ON u.user_id = al.user_id
+    "SELECT al.*, u.email FROM tbl_audit_log al
+     JOIN tbl_user u ON u.user_id = al.user_id
      ORDER BY al.logged_at DESC LIMIT 10"
 )->fetchAll();
 ?>

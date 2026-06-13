@@ -4,19 +4,19 @@ $activePage = 'lecturers';
 require_once __DIR__ . '/../../includes/header.php';
 $db = getDB();
 
-$tdpp = $db->prepare("SELECT t.*, f.faculty_code, f.faculty_name FROM Tbl_TDPP t JOIN Tbl_Faculty f ON f.faculty_id=t.faculty_id WHERE t.user_id=?");
+$tdpp = $db->prepare("SELECT t.*, f.faculty_code, f.faculty_name FROM tbl_tdpp t JOIN tbl_faculty f ON f.faculty_id=t.faculty_id WHERE t.user_id=?");
 $tdpp->execute([$_SESSION['user_id']]);
 $tdpp = $tdpp->fetch();
 $facId = $tdpp['faculty_id'];
 
 $lecturers = $db->prepare(
     "SELECT l.*, u.email,
-        (SELECT COUNT(*) FROM Tbl_Publication p JOIN Tbl_Research_Data rd ON p.data_id=rd.data_id WHERE rd.lecturer_id=l.lecturer_id AND rd.status='Approved') AS pubs,
-        (SELECT COUNT(*) FROM Tbl_Grant g JOIN Tbl_Research_Data rd ON g.data_id=rd.data_id WHERE rd.lecturer_id=l.lecturer_id AND rd.status='Approved') AS grants,
-        (SELECT COUNT(*) FROM Tbl_KPI_Task kt WHERE kt.lecturer_id=l.lecturer_id) AS tasks,
-        (SELECT COUNT(*) FROM Tbl_KPI_Task kt WHERE kt.lecturer_id=l.lecturer_id AND kt.status IN ('Completed','Completed (Late)')) AS done
-     FROM Tbl_Lecturer l
-     JOIN Tbl_User u ON u.user_id=l.user_id
+        (SELECT COUNT(*) FROM tbl_publication p JOIN tbl_research_data rd ON p.data_id=rd.data_id WHERE rd.lecturer_id=l.lecturer_id AND rd.status='Approved') AS pubs,
+        (SELECT COUNT(*) FROM tbl_grant g JOIN tbl_research_data rd ON g.data_id=rd.data_id WHERE rd.lecturer_id=l.lecturer_id AND rd.status='Approved') AS grants,
+        (SELECT COUNT(*) FROM tbl_kpi_task kt WHERE kt.lecturer_id=l.lecturer_id) AS tasks,
+        (SELECT COUNT(*) FROM tbl_kpi_task kt WHERE kt.lecturer_id=l.lecturer_id AND kt.status IN ('Completed','Completed (Late)')) AS done
+     FROM tbl_lecturer l
+     JOIN tbl_user u ON u.user_id=l.user_id
      WHERE l.faculty_id=?
      ORDER BY l.full_name"
 );

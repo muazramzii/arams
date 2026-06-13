@@ -11,7 +11,7 @@ $db = getDB();
 // Fetch ALL faculties for filter dropdown
 $faculties = $db->query(
     "SELECT faculty_id, faculty_code, faculty_name
-     FROM Tbl_Faculty ORDER BY faculty_code"
+     FROM tbl_faculty ORDER BY faculty_code"
 )->fetchAll();
 
 // Fetch ALL lecturers with faculty_id for JS filtering
@@ -19,9 +19,9 @@ $lecturers = $db->query(
     "SELECT l.lecturer_id, l.full_name, l.staff_no, l.position, l.grade,
             l.faculty_id,
             f.faculty_name, f.faculty_code, u.email
-     FROM Tbl_Lecturer l
-     JOIN Tbl_Faculty f ON f.faculty_id = l.faculty_id
-     JOIN Tbl_User   u ON u.user_id    = l.user_id
+     FROM tbl_lecturer l
+     JOIN tbl_faculty f ON f.faculty_id = l.faculty_id
+     JOIN tbl_user   u ON u.user_id    = l.user_id
      ORDER BY l.full_name"
 )->fetchAll();
 
@@ -33,9 +33,9 @@ $pubs = $grants = $hindexes = $incomes = $awards = [];
 if ($selectedId) {
     $st = $db->prepare(
         "SELECT l.*, f.faculty_name, f.faculty_code, u.email
-         FROM Tbl_Lecturer l
-         JOIN Tbl_Faculty f ON f.faculty_id = l.faculty_id
-         JOIN Tbl_User   u ON u.user_id    = l.user_id
+         FROM tbl_lecturer l
+         JOIN tbl_faculty f ON f.faculty_id = l.faculty_id
+         JOIN tbl_user   u ON u.user_id    = l.user_id
          WHERE l.lecturer_id = ?"
     );
     $st->execute([$selectedId]); $lec = $st->fetch();
@@ -44,39 +44,39 @@ if ($selectedId) {
     $st->execute([$selectedId]); $kpi = $st->fetch() ?: [];
 
     $st = $db->prepare(
-        "SELECT p.*, rd.submission_date FROM Tbl_Publication p
-         JOIN Tbl_Research_Data rd ON p.data_id = rd.data_id
+        "SELECT p.*, rd.submission_date FROM tbl_publication p
+         JOIN tbl_research_data rd ON p.data_id = rd.data_id
          WHERE rd.lecturer_id = ? AND rd.status = 'Approved'
          ORDER BY p.pub_year DESC"
     );
     $st->execute([$selectedId]); $pubs = $st->fetchAll();
 
     $st = $db->prepare(
-        "SELECT g.* FROM Tbl_Grant g
-         JOIN Tbl_Research_Data rd ON g.data_id = rd.data_id
+        "SELECT g.* FROM tbl_grant g
+         JOIN tbl_research_data rd ON g.data_id = rd.data_id
          WHERE rd.lecturer_id = ? AND rd.status = 'Approved'
          ORDER BY g.start_date DESC"
     );
     $st->execute([$selectedId]); $grants = $st->fetchAll();
 
     $st = $db->prepare(
-        "SELECT h.* FROM Tbl_HIndex h
-         JOIN Tbl_Research_Data rd ON h.data_id = rd.data_id
+        "SELECT h.* FROM tbl_hindex h
+         JOIN tbl_research_data rd ON h.data_id = rd.data_id
          WHERE rd.lecturer_id = ? AND rd.status = 'Approved'
          ORDER BY h.record_year DESC"
     );
     $st->execute([$selectedId]); $hindexes = $st->fetchAll();
 
     $st = $db->prepare(
-        "SELECT i.* FROM Tbl_Research_Income i
-         JOIN Tbl_Research_Data rd ON i.data_id = rd.data_id
+        "SELECT i.* FROM tbl_research_income i
+         JOIN tbl_research_data rd ON i.data_id = rd.data_id
          WHERE rd.lecturer_id = ? AND rd.status = 'Approved'
          ORDER BY i.year_received DESC"
     );
     $st->execute([$selectedId]); $incomes = $st->fetchAll();
 
     $st = $db->prepare(
-        "SELECT * FROM Tbl_Award WHERE lecturer_id = ? ORDER BY award_year DESC"
+        "SELECT * FROM tbl_award WHERE lecturer_id = ? ORDER BY award_year DESC"
     );
     $st->execute([$selectedId]); $awards = $st->fetchAll();
 }

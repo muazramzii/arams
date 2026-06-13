@@ -11,7 +11,7 @@ $userId = (int)$_SESSION['user_id'];
 
 // ── Always fetch lecturer_id fresh from DB using user_id ──
 // Never rely on $_SESSION['lecturer_id'] — it may be 0 or missing
-$lecRow = $db->prepare("SELECT lecturer_id FROM Tbl_Lecturer WHERE user_id = ?");
+$lecRow = $db->prepare("SELECT lecturer_id FROM tbl_lecturer WHERE user_id = ?");
 $lecRow->execute([$userId]);
 $lecRow = $lecRow->fetch();
 
@@ -48,7 +48,7 @@ if (!empty($_FILES['profile_photo']['name']) && $_FILES['profile_photo']['error'
 
     if (move_uploaded_file($file['tmp_name'], $uploadDir . $filename)) {
         // Delete old photo
-        $oldSt = $db->prepare("SELECT profile_photo FROM Tbl_Lecturer WHERE lecturer_id = ?");
+        $oldSt = $db->prepare("SELECT profile_photo FROM tbl_lecturer WHERE lecturer_id = ?");
         $oldSt->execute([$lecId]);
         $oldRow = $oldSt->fetch();
         if (!empty($oldRow['profile_photo'])) {
@@ -79,9 +79,9 @@ $params = [
 if ($photoVal !== null) $params[] = $photoVal;
 $params[] = $lecId;
 
-// ── Update Tbl_Lecturer ───────────────────────────────────
+// ── Update tbl_lecturer ───────────────────────────────────
 $db->prepare(
-    "UPDATE Tbl_Lecturer
+    "UPDATE tbl_lecturer
      SET full_name               = ?,
          phone                   = ?,
          department              = ?,
@@ -112,7 +112,7 @@ if ($newPw !== '') {
     if ($newPw !== $confPw) {
         header('Location: /arams/pages/lecturer/profile.php?error=pwmismatch'); exit;
     }
-    $db->prepare("UPDATE Tbl_User SET password = ? WHERE user_id = ?")
+    $db->prepare("UPDATE tbl_user SET password = ? WHERE user_id = ?")
        ->execute([password_hash($newPw, PASSWORD_BCRYPT), $userId]);
 }
 

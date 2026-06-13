@@ -12,7 +12,7 @@ $db = getDB();
 // Get TDPP + faculty
 $tdpp = $db->prepare(
     "SELECT t.*, f.faculty_code, f.faculty_name
-     FROM Tbl_TDPP t JOIN Tbl_Faculty f ON f.faculty_id=t.faculty_id
+     FROM tbl_tdpp t JOIN tbl_faculty f ON f.faculty_id=t.faculty_id
      WHERE t.user_id=?"
 );
 $tdpp->execute([$_SESSION['user_id']]);
@@ -22,7 +22,7 @@ $tdppId = $tdpp['tdpp_id'];
 
 // Lecturers in this faculty (for assign dropdown)
 $lecturers = $db->prepare(
-    "SELECT lecturer_id, full_name, staff_no FROM Tbl_Lecturer
+    "SELECT lecturer_id, full_name, staff_no FROM tbl_lecturer
      WHERE faculty_id=? ORDER BY full_name"
 );
 $lecturers->execute([$facId]);
@@ -30,7 +30,7 @@ $lecturers = $lecturers->fetchAll();
 
 // Refresh overdue status before display
 $db->prepare(
-    "UPDATE Tbl_KPI_Task SET status='Overdue'
+    "UPDATE tbl_kpi_task SET status='Overdue'
      WHERE status IN ('Pending','In Progress')
        AND deadline < CURDATE()
        AND tdpp_id=?"
@@ -39,8 +39,8 @@ $db->prepare(
 // All tasks
 $tasks = $db->prepare(
     "SELECT kt.*, l.full_name AS lecturer_name, l.staff_no
-     FROM Tbl_KPI_Task kt
-     JOIN Tbl_Lecturer l ON l.lecturer_id=kt.lecturer_id
+     FROM tbl_kpi_task kt
+     JOIN tbl_lecturer l ON l.lecturer_id=kt.lecturer_id
      WHERE kt.tdpp_id=?
      ORDER BY
         FIELD(kt.status,'Overdue','In Progress','Pending','Completed (Late)','Completed'),

@@ -4,15 +4,15 @@ $activePage = 'users';
 require_once __DIR__ . '/../../includes/header.php';
 $db = getDB();
 
-$tdpp = $db->prepare("SELECT t.*, f.faculty_code, f.faculty_name FROM Tbl_TDPP t JOIN Tbl_Faculty f ON f.faculty_id=t.faculty_id WHERE t.user_id=?");
+$tdpp = $db->prepare("SELECT t.*, f.faculty_code, f.faculty_name FROM tbl_tdpp t JOIN tbl_faculty f ON f.faculty_id=t.faculty_id WHERE t.user_id=?");
 $tdpp->execute([$_SESSION['user_id']]);
 $tdpp = $tdpp->fetch();
 $facId = $tdpp['faculty_id'];
 
 $users = $db->prepare(
     "SELECT u.user_id, u.email, u.role, u.is_active, u.last_login, l.full_name, l.staff_no
-     FROM Tbl_User u
-     JOIN Tbl_Lecturer l ON l.user_id=u.user_id
+     FROM tbl_user u
+     JOIN tbl_lecturer l ON l.user_id=u.user_id
      WHERE l.faculty_id=?
      ORDER BY l.full_name"
 );

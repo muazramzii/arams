@@ -11,12 +11,12 @@ $db = getDB();
 // Institution-wide KPIs
 $totals = $db->query(
     "SELECT
-        (SELECT COUNT(*) FROM Tbl_Publication p JOIN Tbl_Research_Data rd ON p.data_id=rd.data_id WHERE rd.status='Approved') AS total_pubs,
-        (SELECT COUNT(*) FROM Tbl_Grant g JOIN Tbl_Research_Data rd ON g.data_id=rd.data_id WHERE rd.status='Approved') AS total_grants,
-        (SELECT AVG(h.hindex_value) FROM Tbl_HIndex h JOIN Tbl_Research_Data rd ON h.data_id=rd.data_id WHERE rd.status='Approved') AS avg_hindex,
-        (SELECT SUM(inc.amount) FROM Tbl_Research_Income inc JOIN Tbl_Research_Data rd ON inc.data_id=rd.data_id WHERE rd.status='Approved') AS total_income,
-        (SELECT COUNT(*) FROM Tbl_Lecturer) AS total_lecturers,
-        (SELECT COUNT(*) FROM Tbl_Research_Data WHERE status='Pending') AS pending_count"
+        (SELECT COUNT(*) FROM tbl_publication p JOIN tbl_research_data rd ON p.data_id=rd.data_id WHERE rd.status='Approved') AS total_pubs,
+        (SELECT COUNT(*) FROM tbl_grant g JOIN tbl_research_data rd ON g.data_id=rd.data_id WHERE rd.status='Approved') AS total_grants,
+        (SELECT AVG(h.hindex_value) FROM tbl_hindex h JOIN tbl_research_data rd ON h.data_id=rd.data_id WHERE rd.status='Approved') AS avg_hindex,
+        (SELECT SUM(inc.amount) FROM tbl_research_income inc JOIN tbl_research_data rd ON inc.data_id=rd.data_id WHERE rd.status='Approved') AS total_income,
+        (SELECT COUNT(*) FROM tbl_lecturer) AS total_lecturers,
+        (SELECT COUNT(*) FROM tbl_research_data WHERE status='Pending') AS pending_count"
 )->fetch();
 
 // Top 5 lecturers
@@ -28,7 +28,7 @@ $top5 = $db->query(
 
 // Status distribution
 $statusDist = $db->query(
-    "SELECT status, COUNT(*) AS cnt FROM Tbl_Research_Data GROUP BY status"
+    "SELECT status, COUNT(*) AS cnt FROM tbl_research_data GROUP BY status"
 )->fetchAll();
 $distMap = array_column($statusDist, 'cnt', 'status');
 
@@ -42,8 +42,8 @@ $approvalRate     = $totalSubmissions > 0 ? round($approvedCount / $totalSubmiss
 // Publications by year (last 6 years)
 $pubTrend = $db->query(
     "SELECT p.pub_year, COUNT(*) AS cnt
-     FROM Tbl_Publication p
-     JOIN Tbl_Research_Data rd ON p.data_id=rd.data_id
+     FROM tbl_publication p
+     JOIN tbl_research_data rd ON p.data_id=rd.data_id
      WHERE rd.status='Approved' AND p.pub_year >= YEAR(NOW())-5
      GROUP BY p.pub_year ORDER BY p.pub_year"
 )->fetchAll();

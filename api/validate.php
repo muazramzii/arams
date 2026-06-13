@@ -33,8 +33,8 @@ $db = getDB();
 // Get the submission + lecturer info
 $st = $db->prepare(
     "SELECT rd.lecturer_id, l.user_id AS lec_user_id, l.faculty_id
-     FROM Tbl_Research_Data rd
-     JOIN Tbl_Lecturer l ON l.lecturer_id = rd.lecturer_id
+     FROM tbl_research_data rd
+     JOIN tbl_lecturer l ON l.lecturer_id = rd.lecturer_id
      WHERE rd.data_id = ?"
 );
 $st->execute([$dataId]);
@@ -43,7 +43,7 @@ if (!$row) jsonResponse(false, 'Record not found.');
 
 // If TDPP — verify the submission is in their faculty (cast both to int)
 if ($isTDPP) {
-    $tdpp = $db->prepare("SELECT faculty_id FROM Tbl_TDPP WHERE user_id = ?");
+    $tdpp = $db->prepare("SELECT faculty_id FROM tbl_tdpp WHERE user_id = ?");
     $tdpp->execute([$user['user_id']]);
     $tdppFac = $tdpp->fetchColumn();
     if ((int)$tdppFac !== (int)$row['faculty_id']) {
@@ -53,7 +53,7 @@ if ($isTDPP) {
 
 // Update status
 $db->prepare(
-    "UPDATE Tbl_Research_Data
+    "UPDATE tbl_research_data
      SET status = ?, remarks = ?, admin_id = ?, validated_at = NOW()
      WHERE data_id = ?"
 )->execute([$status, $remarks, $adminId, $dataId]);
@@ -61,7 +61,7 @@ $db->prepare(
 // Log audit (skip silently if table/columns differ)
 try {
     $db->prepare(
-        "INSERT INTO Tbl_Audit_Log (user_id, action, target_id, target_type, details)
+        "INSERT INTO tbl_audit_log (user_id, action, target_id, target_type, details)
          VALUES (?, ?, ?, 'Research_Data', ?)"
     )->execute([$user['user_id'], ucfirst($action) . 'd Submission', $dataId,
                 "data_id=$dataId status=$status" . ($remarks ? " remarks=$remarks" : '')]);
@@ -71,7 +71,7 @@ try {
 $msg = $action === 'approve'
     ? 'Your research submission (ID: ' . $dataId . ') has been approved.'
     : 'Your research submission (ID: ' . $dataId . ') has been rejected.' . ($remarks ? ' Reason: ' . $remarks : '');
-$db->prepare("INSERT INTO Tbl_Notification (user_id, message, data_id) VALUES (?, ?, ?)")
+$db->prepare("INSERT INTO tbl_notification (user_id, message, data_id) VALUES (?, ?, ?)")
    ->execute([$row['lec_user_id'], $msg, $dataId]);
 
 // ── KPI AUTO-COMPLETE — fires only on approval ──

@@ -11,10 +11,10 @@ $unreadCount = getUnreadNotifCount($user['user_id']);
 $isAdmin     = ($user['role'] === 'Admin');
 $isTDPP      = ($user['role'] === 'TDPP');
 
-// ── Resolve display name (Admin/TDPP have no Tbl_Lecturer row) ──
+// ── Resolve display name (Admin/TDPP have no tbl_lecturer row) ──
 $displayName = $user['name'] ?? '';
 if ($isTDPP) {
-    $tdppRow = (getDB())->prepare("SELECT full_name FROM Tbl_TDPP WHERE user_id=?");
+    $tdppRow = (getDB())->prepare("SELECT full_name FROM tbl_tdpp WHERE user_id=?");
     $tdppRow->execute([$user['user_id']]);
     $tdppName = $tdppRow->fetchColumn();
     if ($tdppName) $displayName = $tdppName;
@@ -28,7 +28,7 @@ $initials = substr($initials, 0, 2) ?: 'U';
 $sidebarPhoto = '';
 if (!$isAdmin && !$isTDPP) {
     $photoSt = (getDB())->prepare(
-        "SELECT profile_photo FROM Tbl_Lecturer WHERE user_id = ?"
+        "SELECT profile_photo FROM tbl_lecturer WHERE user_id = ?"
     );
     $photoSt->execute([$user['user_id']]);
     $photoRow  = $photoSt->fetch();

@@ -10,7 +10,7 @@ function runKpiAutoComplete(PDO $db, int $lecturerId): void
 {
     // Get all active (not completed) tasks for this lecturer
     $tasks = $db->prepare(
-        "SELECT * FROM Tbl_KPI_Task
+        "SELECT * FROM tbl_kpi_task
          WHERE lecturer_id = ?
            AND status IN ('Pending','In Progress','Overdue')"
     );
@@ -34,7 +34,7 @@ function runKpiAutoComplete(PDO $db, int $lecturerId): void
         }
 
         $upd = $db->prepare(
-            "UPDATE Tbl_KPI_Task
+            "UPDATE tbl_kpi_task
              SET progress_count=?, status=?, completed_date=?
              WHERE task_id=?"
         );
@@ -52,8 +52,8 @@ function countMatchingItems(PDO $db, int $lecturerId, array $task): int
 {
     switch ($task['task_type']) {
         case 'Publication':
-            $sql = "SELECT COUNT(*) FROM Tbl_Publication p
-                    JOIN Tbl_Research_Data rd ON p.data_id=rd.data_id
+            $sql = "SELECT COUNT(*) FROM tbl_publication p
+                    JOIN tbl_research_data rd ON p.data_id=rd.data_id
                     WHERE rd.lecturer_id=? AND rd.status='Approved'";
             $params = [$lecturerId];
             if ($task['criteria_quartile'] !== 'Any') {
@@ -65,8 +65,8 @@ function countMatchingItems(PDO $db, int $lecturerId, array $task): int
             break;
 
         case 'Grant':
-            $sql = "SELECT COUNT(*) FROM Tbl_Grant g
-                    JOIN Tbl_Research_Data rd ON g.data_id=rd.data_id
+            $sql = "SELECT COUNT(*) FROM tbl_grant g
+                    JOIN tbl_research_data rd ON g.data_id=rd.data_id
                     WHERE rd.lecturer_id=? AND rd.status='Approved'";
             $params = [$lecturerId];
             if ($task['criteria_grant_level'] !== 'Any') {
@@ -78,15 +78,15 @@ function countMatchingItems(PDO $db, int $lecturerId, array $task): int
             break;
 
         case 'H-Index':
-            $sql = "SELECT COUNT(*) FROM Tbl_HIndex h
-                    JOIN Tbl_Research_Data rd ON h.data_id=rd.data_id
+            $sql = "SELECT COUNT(*) FROM tbl_hindex h
+                    JOIN tbl_research_data rd ON h.data_id=rd.data_id
                     WHERE rd.lecturer_id=? AND rd.status='Approved'";
             $params = [$lecturerId];
             break;
 
         case 'Research Income':
-            $sql = "SELECT COUNT(*) FROM Tbl_Research_Income i
-                    JOIN Tbl_Research_Data rd ON i.data_id=rd.data_id
+            $sql = "SELECT COUNT(*) FROM tbl_research_income i
+                    JOIN tbl_research_data rd ON i.data_id=rd.data_id
                     WHERE rd.lecturer_id=? AND rd.status='Approved'";
             $params = [$lecturerId];
             if ((float)$task['criteria_min_amount'] > 0) {
@@ -95,14 +95,14 @@ function countMatchingItems(PDO $db, int $lecturerId, array $task): int
             break;
 
         case 'IP':
-            $sql = "SELECT COUNT(*) FROM Tbl_IP_Record ip
-                    JOIN Tbl_Research_Data rd ON ip.data_id=rd.data_id
+            $sql = "SELECT COUNT(*) FROM tbl_ip_record ip
+                    JOIN tbl_research_data rd ON ip.data_id=rd.data_id
                     WHERE rd.lecturer_id=? AND rd.status='Approved'";
             $params = [$lecturerId];
             break;
 
         case 'Award':
-            $sql = "SELECT COUNT(*) FROM Tbl_Award WHERE lecturer_id=?";
+            $sql = "SELECT COUNT(*) FROM tbl_award WHERE lecturer_id=?";
             $params = [$lecturerId];
             break;
 
@@ -118,19 +118,19 @@ function countMatchingItems(PDO $db, int $lecturerId, array $task): int
 function notifyTaskCompletion(PDO $db, array $task, string $status): void
 {
     // Notify lecturer
-    $lecUser = $db->prepare("SELECT user_id FROM Tbl_Lecturer WHERE lecturer_id=?");
+    $lecUser = $db->prepare("SELECT user_id FROM tbl_lecturer WHERE lecturer_id=?");
     $lecUser->execute([$task['lecturer_id']]);
     $luid = $lecUser->fetchColumn();
     if ($luid) {
-        $db->prepare("INSERT INTO Tbl_Notification (user_id, message, is_read, created_at) VALUES (?,?,0,NOW())")
+        $db->prepare("INSERT INTO tbl_notification (user_id, message, is_read, created_at) VALUES (?,?,0,NOW())")
            ->execute([$luid, "KPI task auto-completed ($status): " . $task['task_title']]);
     }
     // Notify TDPP
-    $tdppUser = $db->prepare("SELECT user_id FROM Tbl_TDPP WHERE tdpp_id=?");
+    $tdppUser = $db->prepare("SELECT user_id FROM tbl_tdpp WHERE tdpp_id=?");
     $tdppUser->execute([$task['tdpp_id']]);
     $tuid = $tdppUser->fetchColumn();
     if ($tuid) {
-        $db->prepare("INSERT INTO Tbl_Notification (user_id, message, is_read, created_at) VALUES (?,?,0,NOW())")
+        $db->prepare("INSERT INTO tbl_notification (user_id, message, is_read, created_at) VALUES (?,?,0,NOW())")
            ->execute([$tuid, "Lecturer completed KPI ($status): " . $task['task_title']]);
     }
 }

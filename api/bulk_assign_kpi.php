@@ -14,7 +14,7 @@ if (($_SESSION['role'] ?? '') !== 'TDPP') {
 $db = getDB();
 
 // Resolve TDPP
-$tdpp = $db->prepare("SELECT tdpp_id, faculty_id FROM Tbl_TDPP WHERE user_id=?");
+$tdpp = $db->prepare("SELECT tdpp_id, faculty_id FROM tbl_tdpp WHERE user_id=?");
 $tdpp->execute([$_SESSION['user_id']]);
 $tdpp = $tdpp->fetch();
 if (!$tdpp) { echo json_encode(['success'=>false,'message'=>'TDPP profile not found']); exit; }
@@ -27,14 +27,14 @@ if (!is_array($lecIds) || count($lecIds) === 0) {
 
 // Prepare reusable statements
 $insert = $db->prepare(
-    "INSERT INTO Tbl_KPI_Task
+    "INSERT INTO tbl_kpi_task
         (tdpp_id, lecturer_id, task_title, task_desc, task_type, target_count,
          criteria_quartile, criteria_indexing, criteria_grant_level, criteria_min_amount,
          assigned_date, deadline, status, progress_count)
      VALUES (?,?,?,?,?,?,?,?,?,?,CURDATE(),?,'Pending',0)"
 );
-$notify = $db->prepare("INSERT INTO Tbl_Notification (user_id, message, data_id) VALUES (?,?,NULL)");
-$lecUser = $db->prepare("SELECT user_id, faculty_id FROM Tbl_Lecturer WHERE lecturer_id=?");
+$notify = $db->prepare("INSERT INTO tbl_notification (user_id, message, data_id) VALUES (?,?,NULL)");
+$lecUser = $db->prepare("SELECT user_id, faculty_id FROM tbl_lecturer WHERE lecturer_id=?");
 
 $title  = trim($_POST['task_title'] ?? '');
 $desc   = trim($_POST['task_desc'] ?? '');

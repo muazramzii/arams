@@ -64,7 +64,7 @@ function formatRM(float $amount): string {
 
 function getUnreadNotifCount(int $user_id): int {
     $db  = getDB();
-    $sql = "SELECT COUNT(*) FROM Tbl_Notification WHERE user_id = ? AND is_read = 0";
+    $sql = "SELECT COUNT(*) FROM tbl_notification WHERE user_id = ? AND is_read = 0";
     $st  = $db->prepare($sql);
     $st->execute([$user_id]);
     return (int)$st->fetchColumn();

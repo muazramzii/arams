@@ -25,10 +25,10 @@ $sql = "SELECT u.user_id, u.email, u.password, u.role, u.is_active,
                a.admin_id,
                a.name           AS adm_name,
                f.faculty_name
-        FROM Tbl_User u
-        LEFT JOIN Tbl_Lecturer l ON l.user_id = u.user_id
-        LEFT JOIN Tbl_Admin    a ON a.user_id = u.user_id
-        LEFT JOIN Tbl_Faculty  f ON f.faculty_id = l.faculty_id
+        FROM tbl_user u
+        LEFT JOIN tbl_lecturer l ON l.user_id = u.user_id
+        LEFT JOIN tbl_admin    a ON a.user_id = u.user_id
+        LEFT JOIN tbl_faculty  f ON f.faculty_id = l.faculty_id
         WHERE u.email = ?";
 $st = $db->prepare($sql);
 $st->execute([$email]);
@@ -45,7 +45,7 @@ if ($user['role'] !== $role) {
 }
 
 // Update last login
-$db->prepare("UPDATE Tbl_User SET last_login = NOW() WHERE user_id = ?")
+$db->prepare("UPDATE tbl_user SET last_login = NOW() WHERE user_id = ?")
    ->execute([$user['user_id']]);
 
 // Set session — including profile_photo

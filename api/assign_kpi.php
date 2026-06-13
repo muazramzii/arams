@@ -12,14 +12,14 @@ if (($_SESSION['role'] ?? '') !== 'TDPP') {
 $db = getDB();
 
 // Resolve TDPP id from session
-$tdpp = $db->prepare("SELECT tdpp_id, faculty_id FROM Tbl_TDPP WHERE user_id=?");
+$tdpp = $db->prepare("SELECT tdpp_id, faculty_id FROM tbl_tdpp WHERE user_id=?");
 $tdpp->execute([$_SESSION['user_id']]);
 $tdpp = $tdpp->fetch();
 if (!$tdpp) { echo json_encode(['success'=>false,'message'=>'TDPP profile not found']); exit; }
 
 // Verify lecturer belongs to TDPP's faculty
 $lecId = (int)($_POST['lecturer_id'] ?? 0);
-$check = $db->prepare("SELECT faculty_id FROM Tbl_Lecturer WHERE lecturer_id=?");
+$check = $db->prepare("SELECT faculty_id FROM tbl_lecturer WHERE lecturer_id=?");
 $check->execute([$lecId]);
 $lec = $check->fetch();
 if (!$lec || $lec['faculty_id'] != $tdpp['faculty_id']) {
@@ -28,7 +28,7 @@ if (!$lec || $lec['faculty_id'] != $tdpp['faculty_id']) {
 
 // Insert task
 $stmt = $db->prepare(
-    "INSERT INTO Tbl_KPI_Task
+    "INSERT INTO tbl_kpi_task
         (tdpp_id, lecturer_id, task_title, task_desc, task_type, target_count,
          criteria_quartile, criteria_indexing, criteria_grant_level, criteria_min_amount,
          assigned_date, deadline, status, progress_count)
@@ -49,11 +49,11 @@ $stmt->execute([
 ]);
 
 // Notify the lecturer
-$lecUser = $db->prepare("SELECT user_id FROM Tbl_Lecturer WHERE lecturer_id=?");
+$lecUser = $db->prepare("SELECT user_id FROM tbl_lecturer WHERE lecturer_id=?");
 $lecUser->execute([$lecId]);
 $uid = $lecUser->fetchColumn();
 if ($uid) {
-    $db->prepare("INSERT INTO Tbl_Notification (user_id, message, is_read, created_at) VALUES (?,?,0,NOW())")
+    $db->prepare("INSERT INTO tbl_notification (user_id, message, is_read, created_at) VALUES (?,?,0,NOW())")
        ->execute([$uid, 'New KPI task assigned: ' . trim($_POST['task_title'] ?? '')]);
 }
 

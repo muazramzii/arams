@@ -12,8 +12,8 @@ $lecId = (int)$user['lecturer_id'];
 // Get all approved records grouped by year
 $pubs = $db->prepare(
     "SELECT p.pub_year AS year, p.title, p.pub_type, p.quartile, p.indexing_type, 'publication' AS rtype
-     FROM Tbl_Publication p
-     JOIN Tbl_Research_Data rd ON p.data_id = rd.data_id
+     FROM tbl_publication p
+     JOIN tbl_research_data rd ON p.data_id = rd.data_id
      WHERE rd.lecturer_id = ? AND rd.status = 'Approved'
      ORDER BY p.pub_year DESC"
 );
@@ -22,8 +22,8 @@ $pubs->execute([$lecId]);
 $grants = $db->prepare(
     "SELECT YEAR(g.start_date) AS year, g.grant_title AS title, g.role, g.amount,
             g.grant_category, g.status AS grant_status, 'grant' AS rtype
-     FROM Tbl_Grant g
-     JOIN Tbl_Research_Data rd ON g.data_id = rd.data_id
+     FROM tbl_grant g
+     JOIN tbl_research_data rd ON g.data_id = rd.data_id
      WHERE rd.lecturer_id = ? AND rd.status = 'Approved'
      ORDER BY g.start_date DESC"
 );
@@ -31,8 +31,8 @@ $grants->execute([$lecId]);
 
 $hindexes = $db->prepare(
     "SELECT h.record_year AS year, h.hindex_value, h.citation_count, h.source, 'hindex' AS rtype
-     FROM Tbl_HIndex h
-     JOIN Tbl_Research_Data rd ON h.data_id = rd.data_id
+     FROM tbl_hindex h
+     JOIN tbl_research_data rd ON h.data_id = rd.data_id
      WHERE rd.lecturer_id = ? AND rd.status = 'Approved'
      ORDER BY h.record_year DESC"
 );

@@ -24,12 +24,12 @@ $act = $db->prepare(
                  WHEN ip.ip_id IS NOT NULL THEN 'IP Record'
                  WHEN inc.income_id IS NOT NULL THEN 'Income'
                  ELSE 'Record' END AS record_type
-     FROM Tbl_Research_Data rd
-     LEFT JOIN Tbl_Publication     p   ON p.data_id   = rd.data_id
-     LEFT JOIN Tbl_Grant           g   ON g.data_id   = rd.data_id
-     LEFT JOIN Tbl_HIndex          h   ON h.data_id   = rd.data_id
-     LEFT JOIN Tbl_IP_Record       ip  ON ip.data_id  = rd.data_id
-     LEFT JOIN Tbl_Research_Income inc ON inc.data_id = rd.data_id
+     FROM tbl_research_data rd
+     LEFT JOIN tbl_publication     p   ON p.data_id   = rd.data_id
+     LEFT JOIN tbl_grant           g   ON g.data_id   = rd.data_id
+     LEFT JOIN tbl_hindex          h   ON h.data_id   = rd.data_id
+     LEFT JOIN tbl_ip_record       ip  ON ip.data_id  = rd.data_id
+     LEFT JOIN tbl_research_income inc ON inc.data_id = rd.data_id
      WHERE rd.lecturer_id = ?
      ORDER BY rd.submission_date DESC LIMIT 5"
 );
@@ -39,8 +39,8 @@ $activities = $act->fetchAll();
 // Publications by year (last 6 years)
 $pubYear = $db->prepare(
     "SELECT p.pub_year, COUNT(*) AS cnt
-     FROM Tbl_Publication p
-     JOIN Tbl_Research_Data rd ON p.data_id = rd.data_id
+     FROM tbl_publication p
+     JOIN tbl_research_data rd ON p.data_id = rd.data_id
      WHERE rd.lecturer_id = ? AND rd.status = 'Approved'
        AND p.pub_year >= YEAR(NOW()) - 5
      GROUP BY p.pub_year ORDER BY p.pub_year"

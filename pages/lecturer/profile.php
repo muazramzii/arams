@@ -10,15 +10,15 @@ $db    = getDB();
 $lecId = (int)$user['lecturer_id'];
 
 // Always fetch fresh from DB using user_id in case session is stale
-$lecRow = $db->prepare("SELECT lecturer_id FROM Tbl_Lecturer WHERE user_id = ?");
+$lecRow = $db->prepare("SELECT lecturer_id FROM tbl_lecturer WHERE user_id = ?");
 $lecRow->execute([$user['user_id']]);
 $fresh = $lecRow->fetch();
 if ($fresh) $lecId = (int)$fresh['lecturer_id'];
 
 $st = $db->prepare(
     "SELECT l.*, f.faculty_name, f.faculty_code
-     FROM Tbl_Lecturer l
-     JOIN Tbl_Faculty f ON f.faculty_id = l.faculty_id
+     FROM tbl_lecturer l
+     JOIN tbl_faculty f ON f.faculty_id = l.faculty_id
      WHERE l.lecturer_id = ?"
 );
 $st->execute([$lecId]);

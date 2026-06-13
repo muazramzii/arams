@@ -13,9 +13,9 @@ if (!$lecId) { header('Location: /arams/pages/admin/lecturers.php'); exit; }
 // ── Lecturer profile ──────────────────────────────────────
 $lec = $db->prepare(
     "SELECT l.*, f.faculty_name, f.faculty_code, u.email
-     FROM Tbl_Lecturer l
-     JOIN Tbl_Faculty f ON f.faculty_id = l.faculty_id
-     JOIN Tbl_User u ON u.user_id = l.user_id
+     FROM tbl_lecturer l
+     JOIN tbl_faculty f ON f.faculty_id = l.faculty_id
+     JOIN tbl_user u ON u.user_id = l.user_id
      WHERE l.lecturer_id = ?"
 );
 $lec->execute([$lecId]); $lec = $lec->fetch();
@@ -27,8 +27,8 @@ $kpi->execute([$lecId]); $k = $kpi->fetch() ?: [];
 
 // ── Publications ──────────────────────────────────────────
 $pubs = $db->prepare(
-    "SELECT p.*, rd.submission_date FROM Tbl_Publication p
-     JOIN Tbl_Research_Data rd ON p.data_id = rd.data_id
+    "SELECT p.*, rd.submission_date FROM tbl_publication p
+     JOIN tbl_research_data rd ON p.data_id = rd.data_id
      WHERE rd.lecturer_id = ? AND rd.status = 'Approved'
      ORDER BY p.pub_year DESC"
 );
@@ -36,8 +36,8 @@ $pubs->execute([$lecId]); $publications = $pubs->fetchAll();
 
 // ── Publication type counts ───────────────────────────────
 $pubTypes = $db->prepare(
-    "SELECT pub_type, COUNT(*) AS cnt FROM Tbl_Publication p
-     JOIN Tbl_Research_Data rd ON p.data_id = rd.data_id
+    "SELECT pub_type, COUNT(*) AS cnt FROM tbl_publication p
+     JOIN tbl_research_data rd ON p.data_id = rd.data_id
      WHERE rd.lecturer_id = ? AND rd.status = 'Approved'
      GROUP BY pub_type ORDER BY cnt DESC"
 );
@@ -45,8 +45,8 @@ $pubTypes->execute([$lecId]); $pubTypes = $pubTypes->fetchAll();
 
 // ── Quartile counts ───────────────────────────────────────
 $quartiles = $db->prepare(
-    "SELECT quartile, COUNT(*) AS cnt FROM Tbl_Publication p
-     JOIN Tbl_Research_Data rd ON p.data_id = rd.data_id
+    "SELECT quartile, COUNT(*) AS cnt FROM tbl_publication p
+     JOIN tbl_research_data rd ON p.data_id = rd.data_id
      WHERE rd.lecturer_id = ? AND rd.status = 'Approved'
      GROUP BY quartile"
 );
@@ -55,8 +55,8 @@ $qMap = array_column($quartiles, 'cnt', 'quartile');
 
 // ── Publication trend by year ─────────────────────────────
 $pubTrend = $db->prepare(
-    "SELECT p.pub_year AS yr, COUNT(*) AS cnt FROM Tbl_Publication p
-     JOIN Tbl_Research_Data rd ON p.data_id = rd.data_id
+    "SELECT p.pub_year AS yr, COUNT(*) AS cnt FROM tbl_publication p
+     JOIN tbl_research_data rd ON p.data_id = rd.data_id
      WHERE rd.lecturer_id = ? AND rd.status = 'Approved'
        AND p.pub_year >= YEAR(NOW()) - 5
      GROUP BY p.pub_year ORDER BY p.pub_year"
@@ -65,8 +65,8 @@ $pubTrend->execute([$lecId]); $pubTrend = $pubTrend->fetchAll();
 
 // ── Grants ────────────────────────────────────────────────
 $grants = $db->prepare(
-    "SELECT g.*, rd.status FROM Tbl_Grant g
-     JOIN Tbl_Research_Data rd ON g.data_id = rd.data_id
+    "SELECT g.*, rd.status FROM tbl_grant g
+     JOIN tbl_research_data rd ON g.data_id = rd.data_id
      WHERE rd.lecturer_id = ? AND rd.status = 'Approved'
      ORDER BY g.start_date DESC"
 );
@@ -74,8 +74,8 @@ $grants->execute([$lecId]); $grants = $grants->fetchAll();
 
 // ── Grant category counts ─────────────────────────────────
 $grantCats = $db->prepare(
-    "SELECT grant_category, COUNT(*) AS cnt FROM Tbl_Grant g
-     JOIN Tbl_Research_Data rd ON g.data_id = rd.data_id
+    "SELECT grant_category, COUNT(*) AS cnt FROM tbl_grant g
+     JOIN tbl_research_data rd ON g.data_id = rd.data_id
      WHERE rd.lecturer_id = ? AND rd.status = 'Approved'
      GROUP BY grant_category ORDER BY cnt DESC"
 );
@@ -83,8 +83,8 @@ $grantCats->execute([$lecId]); $grantCats = $grantCats->fetchAll();
 
 // ── Grant role counts ─────────────────────────────────────
 $grantRoles = $db->prepare(
-    "SELECT role, COUNT(*) AS cnt FROM Tbl_Grant g
-     JOIN Tbl_Research_Data rd ON g.data_id = rd.data_id
+    "SELECT role, COUNT(*) AS cnt FROM tbl_grant g
+     JOIN tbl_research_data rd ON g.data_id = rd.data_id
      WHERE rd.lecturer_id = ? AND rd.status = 'Approved'
      GROUP BY role ORDER BY cnt DESC"
 );
@@ -92,14 +92,14 @@ $grantRoles->execute([$lecId]); $grantRoles = $grantRoles->fetchAll();
 
 // ── Awards ────────────────────────────────────────────────
 $awards = $db->prepare(
-    "SELECT * FROM Tbl_Award WHERE lecturer_id = ? ORDER BY award_year DESC"
+    "SELECT * FROM tbl_award WHERE lecturer_id = ? ORDER BY award_year DESC"
 );
 $awards->execute([$lecId]); $awards = $awards->fetchAll();
 
 // ── IP Records ────────────────────────────────────────────
 $ips = $db->prepare(
-    "SELECT i.*, rd.status FROM Tbl_IP_Record i
-     JOIN Tbl_Research_Data rd ON i.data_id = rd.data_id
+    "SELECT i.*, rd.status FROM tbl_ip_record i
+     JOIN tbl_research_data rd ON i.data_id = rd.data_id
      WHERE rd.lecturer_id = ? AND rd.status = 'Approved'
      ORDER BY i.filing_date DESC"
 );
@@ -107,8 +107,8 @@ $ips->execute([$lecId]); $ips = $ips->fetchAll();
 
 // ── H-Index history ───────────────────────────────────────
 $hindexes = $db->prepare(
-    "SELECT h.* FROM Tbl_HIndex h
-     JOIN Tbl_Research_Data rd ON h.data_id = rd.data_id
+    "SELECT h.* FROM tbl_hindex h
+     JOIN tbl_research_data rd ON h.data_id = rd.data_id
      WHERE rd.lecturer_id = ? AND rd.status = 'Approved'
      ORDER BY h.record_year DESC"
 );

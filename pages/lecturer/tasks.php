@@ -10,7 +10,7 @@ require_once __DIR__ . '/../../includes/header.php';
 $db = getDB();
 
 // Resolve lecturer_id
-$lec = $db->prepare("SELECT lecturer_id, full_name FROM Tbl_Lecturer WHERE user_id=?");
+$lec = $db->prepare("SELECT lecturer_id, full_name FROM tbl_lecturer WHERE user_id=?");
 $lec->execute([$_SESSION['user_id']]);
 $lec = $lec->fetch();
 
@@ -27,15 +27,15 @@ $lecId = $lec['lecturer_id'];
 
 // Refresh overdue
 $db->prepare(
-    "UPDATE Tbl_KPI_Task SET status='Overdue'
+    "UPDATE tbl_kpi_task SET status='Overdue'
      WHERE lecturer_id=? AND status IN ('Pending','In Progress') AND deadline < CURDATE()"
 )->execute([$lecId]);
 
 // All tasks for this lecturer
 $tasks = $db->prepare(
     "SELECT kt.*, tp.full_name AS assigned_by
-     FROM Tbl_KPI_Task kt
-     JOIN Tbl_TDPP tp ON tp.tdpp_id = kt.tdpp_id
+     FROM tbl_kpi_task kt
+     JOIN tbl_tdpp tp ON tp.tdpp_id = kt.tdpp_id
      WHERE kt.lecturer_id=?
      ORDER BY FIELD(kt.status,'Overdue','In Progress','Pending','Completed (Late)','Completed'), kt.deadline ASC"
 );

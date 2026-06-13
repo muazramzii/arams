@@ -13,35 +13,35 @@ $tab   = $_GET['tab'] ?? 'publications';
 // Fetch all records per type
 $pubs = $db->prepare(
     "SELECT p.*, rd.status, rd.submission_date, rd.remarks
-     FROM Tbl_Publication p JOIN Tbl_Research_Data rd ON p.data_id = rd.data_id
+     FROM tbl_publication p JOIN tbl_research_data rd ON p.data_id = rd.data_id
      WHERE rd.lecturer_id = ? ORDER BY p.pub_year DESC, rd.submission_date DESC"
 );
 $pubs->execute([$lecId]); $publications = $pubs->fetchAll();
 
 $grts = $db->prepare(
     "SELECT g.*, rd.status, rd.submission_date, rd.remarks
-     FROM Tbl_Grant g JOIN Tbl_Research_Data rd ON g.data_id = rd.data_id
+     FROM tbl_grant g JOIN tbl_research_data rd ON g.data_id = rd.data_id
      WHERE rd.lecturer_id = ? ORDER BY g.start_date DESC"
 );
 $grts->execute([$lecId]); $grants = $grts->fetchAll();
 
 $hidx = $db->prepare(
     "SELECT h.*, rd.status, rd.submission_date
-     FROM Tbl_HIndex h JOIN Tbl_Research_Data rd ON h.data_id = rd.data_id
+     FROM tbl_hindex h JOIN tbl_research_data rd ON h.data_id = rd.data_id
      WHERE rd.lecturer_id = ? ORDER BY h.record_year DESC"
 );
 $hidx->execute([$lecId]); $hindexes = $hidx->fetchAll();
 
 $ips = $db->prepare(
     "SELECT ip.*, rd.status, rd.submission_date
-     FROM Tbl_IP_Record ip JOIN Tbl_Research_Data rd ON ip.data_id = rd.data_id
+     FROM tbl_ip_record ip JOIN tbl_research_data rd ON ip.data_id = rd.data_id
      WHERE rd.lecturer_id = ? ORDER BY ip.filing_date DESC"
 );
 $ips->execute([$lecId]); $iprecs = $ips->fetchAll();
 
 $incs = $db->prepare(
     "SELECT inc.*, rd.status, rd.submission_date
-     FROM Tbl_Research_Income inc JOIN Tbl_Research_Data rd ON inc.data_id = rd.data_id
+     FROM tbl_research_income inc JOIN tbl_research_data rd ON inc.data_id = rd.data_id
      WHERE rd.lecturer_id = ? ORDER BY inc.year_received DESC"
 );
 $incs->execute([$lecId]); $incomes = $incs->fetchAll();
@@ -88,8 +88,8 @@ $badgeMap = ['Approved'=>'badge-green','Pending'=>'badge-yellow','Rejected'=>'ba
 </div>
 
 <div class="search-row">
-    <input type="text" class="search-input" placeholder="Search records…" oninput="filterTable(this, 'resTable')">
-    <select class="filter-select" onchange="filterBySelect(this, 'resTable', 5)">
+    <input type="text" class="search-input" placeholder="Search records…" oninput="filterActiveTab(this)">
+    <select class="filter-select" onchange="filterActiveStatus(this)">
         <option value="">All Status</option>
         <option>Approved</option><option>Pending</option><option>Rejected</option>
     </select>
@@ -124,9 +124,7 @@ $badgeMap = ['Approved'=>'badge-green','Pending'=>'badge-yellow','Rejected'=>'ba
                 </div>
                 <?php endif; ?>
             </div>
-            <div style="display:flex;gap:6px;flex-shrink:0">
-                <button class="btn btn-outline btn-sm" onclick="editPublication(<?= $p['publication_id'] ?>)">Edit</button>
-            </div>
+            
         </div>
     </div>
     <?php endforeach; ?>
@@ -267,12 +265,49 @@ $badgeMap = ['Approved'=>'badge-green','Pending'=>'badge-yellow','Rejected'=>'ba
 // Show correct tab panel based on server-rendered initial tab
 const panels = document.querySelectorAll('.tab-panel');
 
+let activeResTab = '<?= $tab ?>';
+
 function switchResTab(tabId, btn) {
+    activeResTab = tabId;
     document.querySelectorAll('#researchTabs .tab-btn').forEach(t => t.classList.remove('active'));
     btn.classList.add('active');
     panels.forEach(p => p.style.display = 'none');
     const target = document.getElementById('panel-' + tabId);
     if (target) target.style.display = 'block';
+    // reset search when switching tabs
+    const s = document.querySelector('.search-input'); if (s) s.value = '';
+    const sel = document.querySelector('.filter-select'); if (sel) sel.value = '';
+}
+
+function _activePanel() { return document.getElementById('panel-' + activeResTab); }
+
+function filterActiveTab(input) {
+    const q = input.value.toLowerCase();
+    const panel = _activePanel(); if (!panel) return;
+    const cards = panel.querySelectorAll('.pub-card');
+    if (cards.length) {
+        cards.forEach(c => { c.style.display = c.textContent.toLowerCase().includes(q) ? '' : 'none'; });
+    } else {
+        panel.querySelectorAll('tbody tr').forEach(tr => {
+            if (tr.querySelector('td[colspan]')) return;
+            tr.style.display = tr.textContent.toLowerCase().includes(q) ? '' : 'none';
+        });
+    }
+}
+
+function filterActiveStatus(sel) {
+    const q = sel.value.toLowerCase();
+    const panel = _activePanel(); if (!panel) return;
+    const match = el => !q || el.textContent.toLowerCase().includes(q);
+    const cards = panel.querySelectorAll('.pub-card');
+    if (cards.length) {
+        cards.forEach(c => { c.style.display = match(c) ? '' : 'none'; });
+    } else {
+        panel.querySelectorAll('tbody tr').forEach(tr => {
+            if (tr.querySelector('td[colspan]')) return;
+            tr.style.display = match(tr) ? '' : 'none';
+        });
+    }
 }
 
 function openAddModal() {

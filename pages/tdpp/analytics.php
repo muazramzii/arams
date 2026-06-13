@@ -10,7 +10,7 @@ require_once __DIR__ . '/../../includes/header.php';
 $db = getDB();
 
 // Resolve TDPP faculty
-$tdpp = $db->prepare("SELECT t.*, f.faculty_code, f.faculty_name FROM Tbl_TDPP t JOIN Tbl_Faculty f ON f.faculty_id=t.faculty_id WHERE t.user_id=?");
+$tdpp = $db->prepare("SELECT t.*, f.faculty_code, f.faculty_name FROM tbl_tdpp t JOIN tbl_faculty f ON f.faculty_id=t.faculty_id WHERE t.user_id=?");
 $tdpp->execute([$_SESSION['user_id']]);
 $tdpp  = $tdpp->fetch();
 $facId = $tdpp['faculty_id'];
@@ -20,49 +20,49 @@ $kpiRow = $db->prepare(
     "SELECT SUM(k.total_publications) AS pubs, SUM(k.total_grants) AS grants,
             AVG(k.current_hindex) AS hindex, SUM(k.total_citations) AS citations
      FROM vw_lecturer_kpi k
-     JOIN Tbl_Lecturer l ON l.lecturer_id = k.lecturer_id
+     JOIN tbl_lecturer l ON l.lecturer_id = k.lecturer_id
      WHERE l.faculty_id = ?"
 );
 $kpiRow->execute([$facId]); $kpiRow = $kpiRow->fetch();
 
 $pubTrend = $db->prepare(
     "SELECT p.pub_year AS yr, COUNT(*) AS cnt
-     FROM Tbl_Publication p
-     JOIN Tbl_Research_Data rd ON p.data_id=rd.data_id
-     JOIN Tbl_Lecturer l ON l.lecturer_id=rd.lecturer_id
+     FROM tbl_publication p
+     JOIN tbl_research_data rd ON p.data_id=rd.data_id
+     JOIN tbl_lecturer l ON l.lecturer_id=rd.lecturer_id
      WHERE rd.status='Approved' AND l.faculty_id=? AND p.pub_year >= YEAR(NOW())-5
      GROUP BY p.pub_year ORDER BY p.pub_year"
 );
 $pubTrend->execute([$facId]); $pubTrend = $pubTrend->fetchAll();
 
 $quartileDist = $db->prepare(
-    "SELECT quartile, COUNT(*) AS cnt FROM Tbl_Publication p
-     JOIN Tbl_Research_Data rd ON p.data_id=rd.data_id
-     JOIN Tbl_Lecturer l ON l.lecturer_id=rd.lecturer_id
+    "SELECT quartile, COUNT(*) AS cnt FROM tbl_publication p
+     JOIN tbl_research_data rd ON p.data_id=rd.data_id
+     JOIN tbl_lecturer l ON l.lecturer_id=rd.lecturer_id
      WHERE rd.status='Approved' AND l.faculty_id=? GROUP BY quartile"
 );
 $quartileDist->execute([$facId]); $quartileDist = $quartileDist->fetchAll();
 
 $pubTypes = $db->prepare(
-    "SELECT pub_type, COUNT(*) AS cnt FROM Tbl_Publication p
-     JOIN Tbl_Research_Data rd ON p.data_id=rd.data_id
-     JOIN Tbl_Lecturer l ON l.lecturer_id=rd.lecturer_id
+    "SELECT pub_type, COUNT(*) AS cnt FROM tbl_publication p
+     JOIN tbl_research_data rd ON p.data_id=rd.data_id
+     JOIN tbl_lecturer l ON l.lecturer_id=rd.lecturer_id
      WHERE rd.status='Approved' AND l.faculty_id=? GROUP BY pub_type ORDER BY cnt DESC"
 );
 $pubTypes->execute([$facId]); $pubTypes = $pubTypes->fetchAll();
 
 $grantCats = $db->prepare(
-    "SELECT grant_category, COUNT(*) AS cnt FROM Tbl_Grant g
-     JOIN Tbl_Research_Data rd ON g.data_id=rd.data_id
-     JOIN Tbl_Lecturer l ON l.lecturer_id=rd.lecturer_id
+    "SELECT grant_category, COUNT(*) AS cnt FROM tbl_grant g
+     JOIN tbl_research_data rd ON g.data_id=rd.data_id
+     JOIN tbl_lecturer l ON l.lecturer_id=rd.lecturer_id
      WHERE rd.status='Approved' AND l.faculty_id=? GROUP BY grant_category ORDER BY cnt DESC"
 );
 $grantCats->execute([$facId]); $grantCats = $grantCats->fetchAll();
 
 $grantRoles = $db->prepare(
-    "SELECT role, COUNT(*) AS cnt FROM Tbl_Grant g
-     JOIN Tbl_Research_Data rd ON g.data_id=rd.data_id
-     JOIN Tbl_Lecturer l ON l.lecturer_id=rd.lecturer_id
+    "SELECT role, COUNT(*) AS cnt FROM tbl_grant g
+     JOIN tbl_research_data rd ON g.data_id=rd.data_id
+     JOIN tbl_lecturer l ON l.lecturer_id=rd.lecturer_id
      WHERE rd.status='Approved' AND l.faculty_id=? GROUP BY role ORDER BY cnt DESC"
 );
 $grantRoles->execute([$facId]); $grantRoles = $grantRoles->fetchAll();
@@ -72,8 +72,8 @@ $kpiByLec = $db->prepare(
     "SELECT l.full_name,
         COUNT(kt.task_id) AS total,
         SUM(CASE WHEN kt.status IN ('Completed','Completed (Late)') THEN 1 ELSE 0 END) AS done
-     FROM Tbl_Lecturer l
-     LEFT JOIN Tbl_KPI_Task kt ON kt.lecturer_id=l.lecturer_id
+     FROM tbl_lecturer l
+     LEFT JOIN tbl_kpi_task kt ON kt.lecturer_id=l.lecturer_id
      WHERE l.faculty_id=?
      GROUP BY l.lecturer_id HAVING total > 0
      ORDER BY done DESC"

@@ -6,9 +6,9 @@ require_once __DIR__ . '/../../includes/header.php';
 $db = getDB();
 $lecturers = $db->query("SELECT k.*, l.staff_no, l.department, l.research_centre
                           FROM vw_lecturer_kpi k
-                          JOIN Tbl_Lecturer l ON l.lecturer_id = k.lecturer_id
+                          JOIN tbl_lecturer l ON l.lecturer_id = k.lecturer_id
                           ORDER BY k.total_publications DESC")->fetchAll();
-$faculties = $db->query("SELECT faculty_id, faculty_code, faculty_name FROM Tbl_Faculty ORDER BY faculty_code")->fetchAll();
+$faculties = $db->query("SELECT faculty_id, faculty_code, faculty_name FROM tbl_faculty ORDER BY faculty_code")->fetchAll();
 ?>
 
 <div class="page-header-row">

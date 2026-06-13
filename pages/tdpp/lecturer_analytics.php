@@ -13,7 +13,7 @@ $db = getDB();
 // ── Resolve the TDPP's faculty ──────────────────────────────
 $tdpp = $db->prepare(
     "SELECT t.faculty_id, f.faculty_code, f.faculty_name
-     FROM Tbl_TDPP t JOIN Tbl_Faculty f ON f.faculty_id=t.faculty_id
+     FROM tbl_tdpp t JOIN tbl_faculty f ON f.faculty_id=t.faculty_id
      WHERE t.user_id=?"
 );
 $tdpp->execute([$_SESSION['user_id']]);
@@ -33,7 +33,7 @@ $reqLec = isset($_GET['lecturer_id']) ? (int)$_GET['lecturer_id'] : 0;
 $lec = $db->prepare(
     "SELECT l.lecturer_id, l.full_name, l.title, l.position, l.grade,
             l.faculty_id, f.faculty_name
-     FROM Tbl_Lecturer l JOIN Tbl_Faculty f ON f.faculty_id=l.faculty_id
+     FROM tbl_lecturer l JOIN tbl_faculty f ON f.faculty_id=l.faculty_id
      WHERE l.lecturer_id=?"
 );
 $lec->execute([$reqLec]);
@@ -65,38 +65,38 @@ $kpiRow->execute([$lecId]); $kpiRow = $kpiRow->fetch();
 
 $pubTrend = $db->prepare(
     "SELECT p.pub_year AS yr, COUNT(*) AS cnt
-     FROM Tbl_Publication p JOIN Tbl_Research_Data rd ON p.data_id=rd.data_id
+     FROM tbl_publication p JOIN tbl_research_data rd ON p.data_id=rd.data_id
      WHERE rd.lecturer_id=? AND rd.status='Approved' AND p.pub_year >= YEAR(NOW())-5
      GROUP BY p.pub_year ORDER BY p.pub_year"
 );
 $pubTrend->execute([$lecId]); $pubTrend = $pubTrend->fetchAll();
 
 $quartileDist = $db->prepare(
-    "SELECT quartile, COUNT(*) AS cnt FROM Tbl_Publication p
-     JOIN Tbl_Research_Data rd ON p.data_id=rd.data_id
+    "SELECT quartile, COUNT(*) AS cnt FROM tbl_publication p
+     JOIN tbl_research_data rd ON p.data_id=rd.data_id
      WHERE rd.lecturer_id=? AND rd.status='Approved' GROUP BY quartile"
 );
 $quartileDist->execute([$lecId]); $quartileDist = $quartileDist->fetchAll();
 
 $pubTypes = $db->prepare(
-    "SELECT pub_type, COUNT(*) AS cnt FROM Tbl_Publication p
-     JOIN Tbl_Research_Data rd ON p.data_id=rd.data_id
+    "SELECT pub_type, COUNT(*) AS cnt FROM tbl_publication p
+     JOIN tbl_research_data rd ON p.data_id=rd.data_id
      WHERE rd.lecturer_id=? AND rd.status='Approved'
      GROUP BY pub_type ORDER BY cnt DESC"
 );
 $pubTypes->execute([$lecId]); $pubTypes = $pubTypes->fetchAll();
 
 $grantCats = $db->prepare(
-    "SELECT grant_category, COUNT(*) AS cnt FROM Tbl_Grant g
-     JOIN Tbl_Research_Data rd ON g.data_id=rd.data_id
+    "SELECT grant_category, COUNT(*) AS cnt FROM tbl_grant g
+     JOIN tbl_research_data rd ON g.data_id=rd.data_id
      WHERE rd.lecturer_id=? AND rd.status='Approved'
      GROUP BY grant_category ORDER BY cnt DESC"
 );
 $grantCats->execute([$lecId]); $grantCats = $grantCats->fetchAll();
 
 $grantRoles = $db->prepare(
-    "SELECT role, COUNT(*) AS cnt FROM Tbl_Grant g
-     JOIN Tbl_Research_Data rd ON g.data_id=rd.data_id
+    "SELECT role, COUNT(*) AS cnt FROM tbl_grant g
+     JOIN tbl_research_data rd ON g.data_id=rd.data_id
      WHERE rd.lecturer_id=? AND rd.status='Approved'
      GROUP BY role ORDER BY cnt DESC"
 );
