@@ -439,18 +439,25 @@ document.getElementById('kpiForm').addEventListener('submit', function(e){
 </script>
 <script>
 function deleteTask(taskId, title) {
-    if (!confirm('Delete this KPI task?\n\n"' + title + '"\n\nThis cannot be undone.')) return;
-    fetch('/arams/api/delete_kpi.php', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ task_id: taskId })
-    })
-    .then(r => r.json())
-    .then(res => {
-        if (res.success) { showToast('KPI task deleted', 'success'); setTimeout(() => location.reload(), 600); }
-        else { showToast(res.message || 'Failed to delete', 'error'); }
-    })
-    .catch(() => showToast('Error deleting task', 'error'));
+    confirmDialog({
+        title: 'Delete this KPI task?',
+        message: '"' + title + '"<br>This cannot be undone.',
+        confirmText: 'Delete',
+        danger: true,
+        onConfirm: function(){
+            fetch('/arams/api/delete_kpi.php', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ task_id: taskId })
+            })
+            .then(r => r.json())
+            .then(res => {
+                if (res.success) { showToast('KPI task deleted', 'success'); setTimeout(() => location.reload(), 600); }
+                else { showToast(res.message || 'Failed to delete', 'error'); }
+            })
+            .catch(() => showToast('Error deleting task', 'error'));
+        }
+    });
 }
 
 </script>

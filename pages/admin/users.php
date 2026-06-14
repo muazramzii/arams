@@ -427,16 +427,23 @@ function submitEdit() {
 }
 
 function toggleUserStatus(userId, newStatus) {
-    if (!confirm('Are you sure you want to ' + (newStatus ? 'activate' : 'deactivate') + ' this user?')) return;
-    fetch('/arams/api/toggle_user.php', {
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({user_id: userId, is_active: newStatus})
-    })
-    .then(r => r.json())
-    .then(res => {
-        if (res.success) { showToast('User updated.','success'); setTimeout(()=>location.reload(),1000); }
-        else showToast(res.message,'error');
+    confirmDialog({
+        title: (newStatus ? 'Activate' : 'Deactivate') + ' this user?',
+        message: newStatus ? 'The user will regain access to the system.' : 'The user will lose access until reactivated.',
+        confirmText: newStatus ? 'Activate' : 'Deactivate',
+        danger: !newStatus,
+        onConfirm: function(){
+            fetch('/arams/api/toggle_user.php', {
+                method:'POST',
+                headers:{'Content-Type':'application/json'},
+                body: JSON.stringify({user_id: userId, is_active: newStatus})
+            })
+            .then(r => r.json())
+            .then(res => {
+                if (res.success) { showToast('User updated.','success'); setTimeout(()=>location.reload(),1000); }
+                else showToast(res.message,'error');
+            });
+        }
     });
 }
 

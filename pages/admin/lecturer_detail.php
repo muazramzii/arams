@@ -725,16 +725,24 @@ const LEC_ID = <?= $lecId ?>;
 
 // ── Admin: Soft-delete a research record ─────────────────────
 function deleteRecord(dataId){
-    if (!confirm('Delete this record?\n\nIt will be removed from all reports and analytics. This is recoverable by an administrator.')) return;
-    const fd = new FormData();
-    fd.append('data_id', dataId);
-    fetch('/arams/api/admin_delete_record.php', { method:'POST', body: fd })
-        .then(r => r.json())
-        .then(res => {
-            showToast(res.message, res.success ? 'success' : 'error');
-            if (res.success) setTimeout(()=>location.reload(), 900);
-        })
-        .catch(() => showToast('Network error.', 'error'));
+    confirmDialog({
+        title: 'Delete this record?',
+        message: 'It will be removed from all reports and analytics.<br>This is recoverable by an administrator.',
+        confirmText: 'Delete',
+        cancelText: 'Cancel',
+        danger: true,
+        onConfirm: function(){
+            const fd = new FormData();
+            fd.append('data_id', dataId);
+            fetch('/arams/api/admin_delete_record.php', { method:'POST', body: fd })
+                .then(r => r.json())
+                .then(res => {
+                    showToast(res.message, res.success ? 'success' : 'error');
+                    if (res.success) setTimeout(()=>location.reload(), 900);
+                })
+                .catch(() => showToast('Network error.', 'error'));
+        }
+    });
 }
 
 // ── Admin: Add Research Record on behalf of this lecturer ────
