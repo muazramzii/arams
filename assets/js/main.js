@@ -64,6 +64,33 @@ function closeModal() {
     if (overlay) overlay.classList.remove('open');
 }
 
+// ── CONFIRM DIALOG (replaces the native browser confirm) ─────
+let _confirmCb = null;
+function confirmDialog(opts) {
+    opts = opts || {};
+    const title   = opts.title       || 'Please confirm';
+    const message = opts.message     || 'Are you sure?';
+    const okText  = opts.confirmText || 'Confirm';
+    const noText  = opts.cancelText  || 'Cancel';
+    const danger  = !!opts.danger;
+    _confirmCb = (typeof opts.onConfirm === 'function') ? opts.onConfirm : null;
+    openModal(`
+        <div class="modal-header">
+            <h3 class="modal-title">${title}</h3>
+        </div>
+        <p style="font-size:14px;line-height:1.55;margin:0 0 1.25rem;color:#334155">${message}</p>
+        <div style="display:flex;gap:8px;justify-content:flex-end">
+            <button class="btn btn-outline" onclick="closeModal()">${noText}</button>
+            <button class="btn ${danger ? 'btn-danger' : 'btn-teal'}" onclick="_runConfirm()">${okText}</button>
+        </div>`);
+}
+function _runConfirm() {
+    const cb = _confirmCb;
+    _confirmCb = null;
+    closeModal();
+    if (cb) cb();
+}
+
 // Overlay click does NOT close the modal (prevents accidental data loss).
 // Modal closes only via the × button, a Cancel button, or the Esc key.
 document.addEventListener('keydown', function (e) {
@@ -173,18 +200,24 @@ function submitForm(formId, endpoint, onSuccess) {
 
 // ── APPROVE / REJECT ROW ─────────────────────────────────────
 function approveRecord(dataId, endpoint, rowEl) {
-    if (!confirm('Approve this submission?')) return;
-    fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ data_id: dataId, action: 'approve' })
-    })
-    .then(r => r.json())
-    .then(res => {
-        if (res.success) {
-            showToast('Record approved successfully.', 'success');
-            if (rowEl) { rowEl.style.opacity = '.4'; setTimeout(() => rowEl.remove(), 400); }
-        } else { showToast(res.message, 'error'); }
+    confirmDialog({
+        title: 'Approve submission?',
+        message: 'This record will be marked as validated.',
+        confirmText: 'Approve',
+        onConfirm: function(){
+            fetch(endpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ data_id: dataId, action: 'approve' })
+            })
+            .then(r => r.json())
+            .then(res => {
+                if (res.success) {
+                    showToast('Record approved successfully.', 'success');
+                    if (rowEl) { rowEl.style.opacity = '.4'; setTimeout(() => rowEl.remove(), 400); }
+                } else { showToast(res.message, 'error'); }
+            });
+        }
     });
 }
 
@@ -207,18 +240,25 @@ function rejectRecord(dataId, endpoint, rowEl) {
 
 // ── CONFIRM DELETE ────────────────────────────────────────────
 function confirmDelete(endpoint, dataId, rowEl, label = 'this record') {
-    if (!confirm('Delete ' + label + '? This cannot be undone.')) return;
-    fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ data_id: dataId })
-    })
-    .then(r => r.json())
-    .then(res => {
-        if (res.success) {
-            showToast('Deleted successfully.', 'success');
-            if (rowEl) { rowEl.style.opacity='.4'; setTimeout(() => rowEl.remove(), 350); }
-        } else { showToast(res.message, 'error'); }
+    confirmDialog({
+        title: 'Delete ' + label + '?',
+        message: 'This action cannot be undone.',
+        confirmText: 'Delete',
+        danger: true,
+        onConfirm: function(){
+            fetch(endpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ data_id: dataId })
+            })
+            .then(r => r.json())
+            .then(res => {
+                if (res.success) {
+                    showToast('Deleted successfully.', 'success');
+                    if (rowEl) { rowEl.style.opacity='.4'; setTimeout(() => rowEl.remove(), 350); }
+                } else { showToast(res.message, 'error'); }
+            });
+        }
     });
 }
 
