@@ -148,7 +148,9 @@ $initials = strtoupper(substr($lec['full_name'], 0, 2));
 <!-- ── ADMIN INLINE EDIT STYLES ──────────────────────── -->
 <style>
 .edit-only,.edit-only-block{display:none}
+.edit-row.edit-only{display:none}
 body.edit-mode .edit-only{display:inline-block}
+body.edit-mode .edit-row.edit-only{display:flex}
 body.edit-mode .edit-only-block{display:block}
 body.edit-mode .view-only{display:none}
 .inline-select{padding:4px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:#fff;max-width:100%}
@@ -470,13 +472,15 @@ body.edit-mode .view-only{display:none}
     </div>
 </div>
 
-<!-- ── Admin: Add Record on behalf of lecturer ────── -->
-<div class="card" style="margin-bottom:1rem;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
-    <div>
-        <div style="font-weight:600;font-size:14px"><i class="fas fa-plus-circle" style="color:var(--teal)"></i> Add a research record for this lecturer</div>
-        <div style="font-size:12px;color:var(--muted)">Records added here are marked validated and recorded in the audit trail.</div>
+<!-- ── Admin: Add Record on behalf of lecturer (edit mode only) ────── -->
+<div class="card edit-only-block" style="margin-bottom:1rem">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+        <div>
+            <div style="font-weight:600;font-size:14px"><i class="fas fa-plus-circle" style="color:var(--teal)"></i> Add a research record for this lecturer</div>
+            <div style="font-size:12px;color:var(--muted)">Records added here are marked validated and recorded in the audit trail.</div>
+        </div>
+        <button class="btn btn-teal" onclick="openAddRecordModal()"><i class="fas fa-plus"></i> Add Record</button>
     </div>
-    <button class="btn btn-teal" onclick="openAddRecordModal()"><i class="fas fa-plus"></i> Add Record</button>
 </div>
 
 <!-- ── ROW 4: Publications List + Grants + Awards ────── -->
@@ -520,6 +524,7 @@ body.edit-mode .view-only{display:none}
                 </select>
                 <button class="save-pill" onclick="savePub(this,<?= $p['publication_id'] ?>)">Save</button>
                 <span class="saved-tick" id="tick_pub_<?= $p['publication_id'] ?>">✓</span>
+                <button class="save-pill" onclick="editRecord('publication',<?= $p['data_id'] ?>)">Edit</button>
                 <button class="save-pill" style="background:#dc2626" onclick="deleteRecord(<?= $p['data_id'] ?>)">Delete</button>
             </div>
         </div>
@@ -577,6 +582,7 @@ body.edit-mode .view-only{display:none}
                     </select>
                     <button class="save-pill" onclick="saveGrant(this,<?= $g['grant_id'] ?>)">Save</button>
                     <span class="saved-tick" id="tick_grant_<?= $g['grant_id'] ?>">✓</span>
+                    <button class="save-pill" onclick="editRecord('grant',<?= $g['data_id'] ?>)">Edit</button>
                     <button class="save-pill" style="background:#dc2626" onclick="deleteRecord(<?= $g['data_id'] ?>)">Delete</button>
                 </div>
             </div>
@@ -600,6 +606,7 @@ body.edit-mode .view-only{display:none}
                     <td style="font-weight:700;color:var(--blue);font-size:16px"><?= $h['hindex_value'] ?></td>
                     <td><?= $h['citation_count'] !== null ? number_format($h['citation_count']) : '—' ?></td>
                     <td><?= htmlspecialchars($h['source']) ?>
+                        <button class="save-pill edit-only" style="margin-left:6px" onclick="editRecord('hindex',<?= $h['data_id'] ?>)">Edit</button>
                         <button class="save-pill edit-only" style="background:#dc2626;margin-left:6px" onclick="deleteRecord(<?= $h['data_id'] ?>)">Delete</button>
                     </td>
                 </tr>
@@ -665,6 +672,7 @@ body.edit-mode .view-only{display:none}
             <span class="badge badge-green"><?= htmlspecialchars($ip['registration_status']) ?></span>
             <button class="save-pill edit-only" onclick="saveIp(this,<?= $ip['ip_id'] ?>)">Save</button>
             <span class="saved-tick" id="tick_ip_<?= $ip['ip_id'] ?>">✓</span>
+            <button class="save-pill edit-only" onclick="editRecord('ip',<?= $ip['data_id'] ?>)">Edit</button>
             <button class="save-pill edit-only" style="background:#dc2626" onclick="deleteRecord(<?= $ip['data_id'] ?>)">Delete</button>
         </div>
     </div>
@@ -722,6 +730,63 @@ document.addEventListener('DOMContentLoaded', function () {
 
 // ── ADMIN INLINE EDIT LOGIC ─────────────────────────────
 const LEC_ID = <?= $lecId ?>;
+
+// ── Record data for pre-filling the edit form ────────────────
+const REC = {
+    publication: <?= json_encode(array_column($publications, null, 'data_id'), JSON_UNESCAPED_UNICODE) ?>,
+    grant:       <?= json_encode(array_column($grants, null, 'data_id'), JSON_UNESCAPED_UNICODE) ?>,
+    hindex:      <?= json_encode(array_column($hindexes, null, 'data_id'), JSON_UNESCAPED_UNICODE) ?>,
+    ip:          <?= json_encode(array_column($ips, null, 'data_id'), JSON_UNESCAPED_UNICODE) ?>
+};
+
+// ── Admin: Full edit of a research record ────────────────────
+function editRecord(type, dataId){
+    const rec = (REC[type] || {})[dataId];
+    if (!rec){ showToast('Record data not found.', 'error'); return; }
+    const label = type.charAt(0).toUpperCase() + type.slice(1);
+    openModal(`
+        <div class="modal-header">
+            <h3 class="modal-title">Edit ${label} Record</h3>
+            <button class="modal-close" onclick="closeModal()">×</button>
+        </div>
+        <div id="editFormArea"></div>
+        <button class="btn btn-teal btn-full" style="margin-top:1rem" onclick="submitEditRecord(this,'${type}',${dataId})">
+            <i class="fas fa-save"></i> Save Changes
+        </button>`);
+    const map = { publication:pubForm, grant:grantForm, hindex:hindexForm, ip:ipForm, income:incomeForm };
+    document.getElementById('editFormArea').innerHTML = (map[type] || pubForm)();
+    populateForm(rec, type);
+}
+function populateForm(rec, type){
+    const form = document.getElementById('addForm');
+    if (!form) return;
+    if (type === 'grant'){
+        const lvl = form.querySelector('[name="grant_level"]');
+        if (lvl && rec.grant_level){ lvl.value = rec.grant_level; cascadeGrantType(rec.grant_level, rec.grant_category); }
+        const st = form.querySelector('[name="grant_status"]'); if (st && rec.status) st.value = rec.status;
+    }
+    Object.keys(rec).forEach(k => {
+        const el = form.querySelector('[name="'+k+'"]');
+        if (!el) return;
+        el.value = (rec[k] === null || rec[k] === undefined) ? '' : String(rec[k]);
+    });
+}
+function submitEditRecord(btn, type, dataId){
+    const form = document.getElementById('addForm');
+    if (!form || !form.checkValidity()){ form && form.reportValidity(); return; }
+    const fd = new FormData(form);
+    fd.append('type', type);
+    fd.append('data_id', dataId);
+    btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+    fetch('/arams/api/admin_update_record.php', { method:'POST', body: fd })
+        .then(r => r.json())
+        .then(res => {
+            showToast(res.message, res.success ? 'success' : 'error');
+            if (res.success){ closeModal(); setTimeout(()=>location.reload(), 1000); }
+        })
+        .catch(() => showToast('Network error.', 'error'))
+        .finally(() => { btn.disabled = false; btn.innerHTML = '<i class="fas fa-save"></i> Save Changes'; });
+}
 
 // ── Admin: Soft-delete a research record ─────────────────────
 function deleteRecord(dataId){

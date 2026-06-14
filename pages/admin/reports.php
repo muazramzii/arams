@@ -1,6 +1,6 @@
 <?php
 // ============================================================
-//  ARAMS — Admin Report Generation
+//  ARAMS — Admin Report Generation (Option A: guided layout)
 // ============================================================
 $pageTitle  = 'Report Generation';
 $activePage = 'reports';
@@ -15,24 +15,59 @@ $recentReports = $db->query(
      ORDER BY r.date_generated DESC LIMIT 10"
 )->fetchAll();
 
-// Stats
-$stats = $db->query(
-    "SELECT COUNT(*) AS total FROM tbl_report"
-)->fetchColumn();
+$stats = $db->query("SELECT COUNT(*) AS total FROM tbl_report")->fetchColumn();
+$monthCount = $db->query("SELECT COUNT(*) FROM tbl_report WHERE date_generated >= DATE_FORMAT(NOW(),'%Y-%m-01')")->fetchColumn();
+$lecCount   = $db->query("SELECT COUNT(*) FROM tbl_lecturer")->fetchColumn();
 
 $faculties = $db->query("SELECT faculty_id, faculty_code, faculty_name FROM tbl_faculty ORDER BY faculty_code")->fetchAll();
-
 $allLecturers = $db->query(
     "SELECT l.lecturer_id, l.full_name, l.staff_no, f.faculty_code
-     FROM tbl_lecturer l
-     JOIN tbl_faculty f ON f.faculty_id = l.faculty_id
+     FROM tbl_lecturer l JOIN tbl_faculty f ON f.faculty_id = l.faculty_id
      ORDER BY l.full_name"
 )->fetchAll();
+
+// Report types grouped into meaningful sections
+$groups = [
+    'Overview' => [
+        ['id'=>'comprehensive','name'=>'Comprehensive Research Report','desc'=>'Complete overview of all research activities','icon'=>'fa-layer-group','color'=>'#0f6e56','bg'=>'#e1f5ee'],
+    ],
+    'By research category' => [
+        ['id'=>'publications','name'=>'Publications Report','desc'=>'WoS, Scopus, MyCite & journal output','icon'=>'fa-book','color'=>'#185fa5','bg'=>'#e6f1fb'],
+        ['id'=>'grants','name'=>'Grants & Funding Report','desc'=>'Grant awards, funding & active grants','icon'=>'fa-coins','color'=>'#854f0b','bg'=>'#faeeda'],
+        ['id'=>'awards','name'=>'Awards & IP Report','desc'=>'Intellectual property & recognition','icon'=>'fa-award','color'=>'#993556','bg'=>'#fbeaf0'],
+        ['id'=>'hindex','name'=>'H-Index & Citations Report','desc'=>'Citation impact & h-index trends','icon'=>'fa-arrow-trend-up','color'=>'#534ab7','bg'=>'#eeedfe'],
+    ],
+    'By people & unit' => [
+        ['id'=>'faculty','name'=>'Faculty Performance Report','desc'=>'Compare performance across faculties','icon'=>'fa-building-columns','color'=>'#0f6e56','bg'=>'#e1f5ee'],
+        ['id'=>'individual','name'=>'Individual Lecturer Report','desc'=>'Tabular record list for one lecturer','icon'=>'fa-user','color'=>'#185fa5','bg'=>'#e6f1fb'],
+        ['id'=>'lecturer','name'=>'Lecturer Performance Report','desc'=>'Visual analytics for one lecturer','icon'=>'fa-chart-pie','color'=>'#993c1d','bg'=>'#faece7'],
+    ],
+];
 ?>
+
+<style>
+.rg-stepper{display:flex;align-items:center;gap:8px;margin:0 0 1.25rem;flex-wrap:wrap}
+.rg-step{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--muted);background:var(--grey);padding:7px 14px;border-radius:8px;transition:.2s}
+.rg-step.active{background:#e1f5ee;color:#0f6e56}
+.rg-step-num{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:#fff;font-size:11px;font-weight:700}
+.rg-step.active .rg-step-num{background:#0f6e56;color:#fff}
+.rg-step-line{flex:0 0 22px;height:2px;background:var(--border)}
+.rg-group-label{font-size:12px;font-weight:700;color:var(--muted);margin:1rem 0 .5rem}
+.rg-group-label:first-of-type{margin-top:0}
+.report-card .rg-ic{width:38px;height:38px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:17px;margin-bottom:8px}
+</style>
 
 <div class="page-header">
     <h1>Report Generation</h1>
-    <p>Generate and export research analytics reports</p>
+    <p>Pick a report, set filters, then generate</p>
+</div>
+
+<div class="rg-stepper">
+    <div class="rg-step active" id="rgStep1"><span class="rg-step-num">1</span> Choose report</div>
+    <div class="rg-step-line"></div>
+    <div class="rg-step active" id="rgStep2"><span class="rg-step-num">2</span> Set filters</div>
+    <div class="rg-step-line"></div>
+    <div class="rg-step active" id="rgStep3"><span class="rg-step-num">3</span> Generate</div>
 </div>
 
 <div class="grid-2-1">
@@ -42,29 +77,21 @@ $allLecturers = $db->query(
         <!-- Report Type Selection -->
         <div class="card">
             <div class="card-title"><i class="fas fa-file-alt" style="color:var(--blue)"></i> Select Report Type</div>
-            <div class="report-grid" id="reportGrid">
-                <?php
-                $templates = [
-                    ['id'=>'comprehensive', 'name'=>'Comprehensive Research Report', 'desc'=>'Complete overview of all research activities', 'sel'=>true],
-                    ['id'=>'publications',  'name'=>'Publications Report',           'desc'=>'Detailed publication statistics and analysis'],
-                    ['id'=>'grants',        'name'=>'Grants & Funding Report',       'desc'=>'Grant awards and funding breakdown'],
-                    ['id'=>'faculty',       'name'=>'Faculty Performance Report',    'desc'=>'Faculty-wise performance comparison'],
-                    ['id'=>'individual',    'name'=>'Individual Lecturer Report',    'desc'=>'Detailed report for specific lecturer'],
-                    ['id'=>'awards',        'name'=>'Awards & IP Report',            'desc'=>'Awards, recognition and IP records'],
-                    ['id'=>'hindex',        'name'=>'H-Index & Citations Report',    'desc'=>'Citation impact and H-index trends'],
-                    ['id'=>'lecturer',      'name'=>'Lecturer Performance Report',   'desc'=>'Full performance report for a specific lecturer'],
-                ];
-                foreach ($templates as $t): ?>
-                <div class="report-card <?= ($t['sel']??false)?'selected':'' ?>"
+            <?php foreach ($groups as $label => $items): ?>
+            <div class="rg-group-label"><?= $label ?></div>
+            <div class="report-grid">
+                <?php foreach ($items as $t): ?>
+                <div class="report-card<?= $t['id']==='comprehensive'?' selected':'' ?>"
                      onclick="selectReport(this, '<?= $t['id'] ?>')">
-                    <div class="report-card-icon">
-                        <i class="fas fa-file-chart-bar"></i>
+                    <div class="rg-ic" style="background:<?= $t['bg'] ?>;color:<?= $t['color'] ?>">
+                        <i class="fas <?= $t['icon'] ?>"></i>
                     </div>
                     <div class="report-card-name"><?= $t['name'] ?></div>
                     <div class="report-card-desc"><?= $t['desc'] ?></div>
                 </div>
                 <?php endforeach; ?>
             </div>
+            <?php endforeach; ?>
             <input type="hidden" id="selectedReportType" value="comprehensive">
         </div>
 
@@ -91,7 +118,6 @@ $allLecturers = $db->query(
                     </select>
                 </div>
             </div>
-            <!-- Lecturer selector — only shown when Individual Lecturer Report is selected -->
             <div class="form-group" id="lecturerSelectGroup" style="display:none">
                 <label class="form-label">Select Lecturer *</label>
                 <select class="form-control" id="filterLecturer">
@@ -103,7 +129,6 @@ $allLecturers = $db->query(
                     <?php endforeach; ?>
                 </select>
             </div>
-
             <div class="form-group">
                 <label class="form-label">Export Format</label>
                 <select class="form-control" id="exportFormat">
@@ -118,16 +143,11 @@ $allLecturers = $db->query(
         </div>
     </div>
 
-    <!-- Right: Sidebar stats + recent reports -->
+    <!-- Right: Sidebar -->
     <div style="display:flex;flex-direction:column;gap:1rem">
-
-        <!-- Stats Card -->
         <div class="card" style="background:linear-gradient(135deg,var(--blue),var(--teal));color:#fff;border:none">
             <div style="font-size:28px;margin-bottom:.5rem"><i class="fas fa-calendar-alt"></i></div>
             <h3 style="font-size:15px;margin:0 0 1rem;font-family:inherit">Report Statistics</h3>
-            <?php
-            $monthCount = $db->query("SELECT COUNT(*) FROM tbl_report WHERE date_generated >= DATE_FORMAT(NOW(),'%Y-%m-01')")->fetchColumn();
-            ?>
             <div style="font-size:13px;display:flex;justify-content:space-between;margin-bottom:6px;opacity:.9">
                 <span>Generated this month</span><strong><?= $monthCount ?></strong>
             </div>
@@ -135,12 +155,10 @@ $allLecturers = $db->query(
                 <span>Total reports</span><strong><?= $stats ?></strong>
             </div>
             <div style="font-size:13px;display:flex;justify-content:space-between;opacity:.9">
-                <span>Total lecturers</span>
-                <strong><?= $db->query("SELECT COUNT(*) FROM tbl_lecturer")->fetchColumn() ?></strong>
+                <span>Total lecturers</span><strong><?= $lecCount ?></strong>
             </div>
         </div>
 
-        <!-- Recent Reports -->
         <div class="card">
             <div class="card-title"><i class="fas fa-history" style="color:var(--blue)"></i> Recent Reports</div>
             <?php if (empty($recentReports)): ?>
@@ -152,8 +170,7 @@ $allLecturers = $db->query(
                     <div style="flex:1">
                         <div style="font-size:13px;font-weight:600"><?= htmlspecialchars($r['report_type']) ?></div>
                         <div style="font-size:11px;color:var(--muted);margin-top:2px">
-                            <?= $r['report_year'] ?? 'All years' ?> •
-                            <?= date('d M Y', strtotime($r['date_generated'])) ?>
+                            <?= $r['report_year'] ?? 'All years' ?> • <?= date('d M Y', strtotime($r['date_generated'])) ?>
                         </div>
                     </div>
                     <span class="badge <?= $r['format']==='PDF' ? 'badge-red' : ($r['format']==='CSV' ? 'badge-teal' : 'badge-green') ?>"
@@ -163,17 +180,15 @@ $allLecturers = $db->query(
             <?php endforeach; ?>
         </div>
 
-        <!-- Help Box -->
         <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:var(--radius-sm);padding:1rem">
             <h4 style="font-size:13px;color:#1e40af;margin:0 0 5px">Need Help?</h4>
-            <p style="font-size:12px;color:#1e40af;margin:0 0 8px;opacity:.8">Reports are generated based on approved data only. Pending submissions are excluded.</p>
+            <p style="font-size:12px;color:#1e40af;margin:0;opacity:.8">Reports use approved data only. Pending and deleted submissions are excluded.</p>
         </div>
     </div>
 </div>
 
 <!-- Hidden form for file download -->
-<form id="reportForm" method="POST" action="/arams/api/generate_report.php"
-      target="_blank" style="display:none">
+<form id="reportForm" method="POST" action="/arams/api/generate_report.php" target="_blank" style="display:none">
     <input type="hidden" name="type"       id="f_type">
     <input type="hidden" name="year"       id="f_year">
     <input type="hidden" name="faculty_id" id="f_fac">
@@ -185,15 +200,9 @@ function selectReport(el, type) {
     document.querySelectorAll('.report-card').forEach(c => c.classList.remove('selected'));
     el.classList.add('selected');
     document.getElementById('selectedReportType').value = type;
-    document.querySelectorAll('.report-card-icon').forEach(i => {
-        i.style.background = 'var(--grey)'; i.style.color = 'var(--muted)';
-    });
-    el.querySelector('.report-card-icon').style.background = 'var(--teal)';
-    el.querySelector('.report-card-icon').style.color = '#fff';
-
-    // Show/hide lecturer dropdown
+    // Only the visual "Lecturer Performance" report targets one lecturer
     const lecGroup = document.getElementById('lecturerSelectGroup');
-    if (lecGroup) lecGroup.style.display = type === 'lecturer' ? 'block' : 'none';
+    if (lecGroup) lecGroup.style.display = (type === 'lecturer') ? 'block' : 'none';
 }
 
 function generateReport() {
@@ -203,13 +212,9 @@ function generateReport() {
     const format = document.getElementById('exportFormat').value;
     const btn    = event.target;
 
-    // If lecturer performance report — redirect to lecturer_report.php
     if (type === 'lecturer') {
         const lecId = document.getElementById('filterLecturer').value;
-        if (!lecId) {
-            showToast('Please select a lecturer first.', 'error');
-            return;
-        }
+        if (!lecId) { showToast('Please select a lecturer first.', 'error'); return; }
         window.open('/arams/pages/admin/lecturer_report.php?lecturer_id=' + lecId, '_blank');
         return;
     }
@@ -217,26 +222,18 @@ function generateReport() {
     btn.disabled = true;
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating…';
 
-    // Use form POST so browser can download the file directly
     document.getElementById('f_type').value   = type;
     document.getElementById('f_year').value   = year;
     document.getElementById('f_fac').value    = fac;
     document.getElementById('f_format').value = format;
     document.getElementById('reportForm').submit();
 
-    // Re-enable button and reload after short delay
     setTimeout(() => {
         btn.disabled = false;
         btn.innerHTML = '<i class="fas fa-download"></i> Generate &amp; Download Report';
         location.reload();
     }, 3000);
 }
-
-// Set initial icon state
-document.addEventListener('DOMContentLoaded', function(){
-    const first = document.querySelector('.report-card.selected .report-card-icon');
-    if (first) { first.style.background = 'var(--teal)'; first.style.color = '#fff'; }
-});
 </script>
 
 <?php require_once __DIR__ . '/../../includes/footer.php'; ?>
