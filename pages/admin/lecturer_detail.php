@@ -520,6 +520,7 @@ body.edit-mode .view-only{display:none}
                 </select>
                 <button class="save-pill" onclick="savePub(this,<?= $p['publication_id'] ?>)">Save</button>
                 <span class="saved-tick" id="tick_pub_<?= $p['publication_id'] ?>">✓</span>
+                <button class="save-pill" style="background:#dc2626" onclick="deleteRecord(<?= $p['data_id'] ?>)">Delete</button>
             </div>
         </div>
         <?php endforeach; ?>
@@ -576,6 +577,7 @@ body.edit-mode .view-only{display:none}
                     </select>
                     <button class="save-pill" onclick="saveGrant(this,<?= $g['grant_id'] ?>)">Save</button>
                     <span class="saved-tick" id="tick_grant_<?= $g['grant_id'] ?>">✓</span>
+                    <button class="save-pill" style="background:#dc2626" onclick="deleteRecord(<?= $g['data_id'] ?>)">Delete</button>
                 </div>
             </div>
             <?php endforeach; ?>
@@ -597,7 +599,9 @@ body.edit-mode .view-only{display:none}
                     <td><?= $h['record_year'] ?></td>
                     <td style="font-weight:700;color:var(--blue);font-size:16px"><?= $h['hindex_value'] ?></td>
                     <td><?= $h['citation_count'] !== null ? number_format($h['citation_count']) : '—' ?></td>
-                    <td><?= htmlspecialchars($h['source']) ?></td>
+                    <td><?= htmlspecialchars($h['source']) ?>
+                        <button class="save-pill edit-only" style="background:#dc2626;margin-left:6px" onclick="deleteRecord(<?= $h['data_id'] ?>)">Delete</button>
+                    </td>
                 </tr>
                 <?php endforeach; ?>
                 </tbody>
@@ -661,6 +665,7 @@ body.edit-mode .view-only{display:none}
             <span class="badge badge-green"><?= htmlspecialchars($ip['registration_status']) ?></span>
             <button class="save-pill edit-only" onclick="saveIp(this,<?= $ip['ip_id'] ?>)">Save</button>
             <span class="saved-tick" id="tick_ip_<?= $ip['ip_id'] ?>">✓</span>
+            <button class="save-pill edit-only" style="background:#dc2626" onclick="deleteRecord(<?= $ip['data_id'] ?>)">Delete</button>
         </div>
     </div>
     <?php endforeach; ?>
@@ -717,6 +722,20 @@ document.addEventListener('DOMContentLoaded', function () {
 
 // ── ADMIN INLINE EDIT LOGIC ─────────────────────────────
 const LEC_ID = <?= $lecId ?>;
+
+// ── Admin: Soft-delete a research record ─────────────────────
+function deleteRecord(dataId){
+    if (!confirm('Delete this record?\n\nIt will be removed from all reports and analytics. This is recoverable by an administrator.')) return;
+    const fd = new FormData();
+    fd.append('data_id', dataId);
+    fetch('/arams/api/admin_delete_record.php', { method:'POST', body: fd })
+        .then(r => r.json())
+        .then(res => {
+            showToast(res.message, res.success ? 'success' : 'error');
+            if (res.success) setTimeout(()=>location.reload(), 900);
+        })
+        .catch(() => showToast('Network error.', 'error'));
+}
 
 // ── Admin: Add Research Record on behalf of this lecturer ────
 let _adminFormType = 'publication';
@@ -809,4 +828,4 @@ function saveIp(btn, id){
 }
 </script>
 
-<?php require_once __DIR__ . '/../../includes/footer.php'; ?> 
+<?php require_once __DIR__ . '/../../includes/footer.php'; ?>
