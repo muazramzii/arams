@@ -341,6 +341,8 @@ if ($format === 'CSV') {
         .cover .sys{font-size:11px;letter-spacing:1px;text-transform:uppercase;opacity:.85}
         .cover h1{font-size:22px;margin:6px 0 4px;color:#fff}
         .cover .meta{font-size:11px;opacity:.92}
+        .cover-row{display:flex;align-items:center;gap:18px}
+        .cover-logo{height:60px;width:auto;background:#fff;border-radius:8px;padding:5px 8px}
         .kpis{display:flex;gap:12px;margin-bottom:18px;flex-wrap:wrap}
         .kpi{flex:1;min-width:130px;border:1px solid #e2e8f0;border-radius:10px;padding:14px 16px;background:#f8fafc}
         .kpi .v{font-size:24px;font-weight:700;color:#0B3C5D;line-height:1.1}
@@ -360,8 +362,11 @@ if ($format === 'CSV') {
     </style></head><body><div class="wrap">';
 
     $html .= '<div class="toolbar"><button class="btnp" onclick="window.print()">Print / Save as PDF</button></div>';
-    $html .= '<div class="cover"><div class="sys">UTHM ARAMS</div><h1>' . htmlspecialchars($title) . '</h1>';
+    $html .= '<div class="cover"><div class="cover-row">';
+    $html .= '<img src="/arams/assets/images/uthm_logo.png" class="cover-logo" alt="UTHM">';
+    $html .= '<div><div class="sys">UTHM ARAMS</div><h1>' . htmlspecialchars($title) . '</h1>';
     $html .= '<div class="meta">Year: ' . $yearLabel . ' &nbsp;|&nbsp; Generated: ' . date('d M Y, H:i') . ' &nbsp;|&nbsp; ' . count($rows) . ' records</div></div>';
+    $html .= '</div></div>';
 
     $html .= '<div class="kpis">';
     foreach ($kpis as $k) {
