@@ -371,8 +371,8 @@ if ($format === 'CSV') {
 
     if ($hasChart) {
         $html .= '<div class="charts">';
-        $html .= '<div class="chartbox"><h3>Top by ' . htmlspecialchars($metricName) . '</h3><canvas id="barC" height="200"></canvas></div>';
-        $html .= '<div class="chartbox"><h3>Distribution — ' . htmlspecialchars($metricName) . '</h3><canvas id="pieC" height="200"></canvas></div>';
+        $html .= '<div class="chartbox"><h3>Top by ' . htmlspecialchars($metricName) . '</h3><div style="height:240px;position:relative"><canvas id="barC"></canvas></div></div>';
+        $html .= '<div class="chartbox"><h3>Distribution — ' . htmlspecialchars($metricName) . '</h3><div style="height:240px;position:relative"><canvas id="pieC"></canvas></div></div>';
         $html .= '</div>';
     }
 
@@ -395,10 +395,10 @@ if ($format === 'CSV') {
         const V = ' . json_encode($chartValues) . ';
         const P = ["#0B3C5D","#1E88A8","#2BB6A3","#7C9CBF","#F4A259","#BC4B51","#8CB369","#5B5F97","#E9C46A","#A8DADC","#457B9D","#E76F51"];
         function draw(){
-          new Chart(document.getElementById("barC"),{type:"bar",data:{labels:L,datasets:[{data:V,backgroundColor:"#1E88A8"}]},options:{animation:false,plugins:{legend:{display:false}},scales:{x:{ticks:{font:{size:9},maxRotation:60,minRotation:30}},y:{beginAtZero:true}}}});
+          new Chart(document.getElementById("barC"),{type:"bar",data:{labels:L,datasets:[{data:V,backgroundColor:"#1E88A8"}]},options:{responsive:true,maintainAspectRatio:false,animation:false,plugins:{legend:{display:false}},scales:{x:{ticks:{font:{size:9},maxRotation:60,minRotation:30}},y:{beginAtZero:true}}}});
           const top=L.slice(0,6),tv=V.slice(0,6);
           if(V.length>6){top.push("Others");tv.push(V.slice(6).reduce((a,b)=>a+b,0));}
-          new Chart(document.getElementById("pieC"),{type:"doughnut",data:{labels:top,datasets:[{data:tv,backgroundColor:P}]},options:{animation:false,plugins:{legend:{position:"right",labels:{font:{size:9}}}}}});
+          new Chart(document.getElementById("pieC"),{type:"doughnut",data:{labels:top,datasets:[{data:tv,backgroundColor:P}]},options:{responsive:true,maintainAspectRatio:false,animation:false,plugins:{legend:{position:"right",labels:{font:{size:9}}}}}});
           setTimeout(function(){window.print();},500);
         }
         if(window.Chart){draw();}else{window.addEventListener("load",function(){ if(window.Chart){draw();}else{setTimeout(function(){window.print();},400);} });}
