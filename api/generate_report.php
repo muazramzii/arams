@@ -118,6 +118,44 @@ switch ($type) {
         }
         break;
 
+    case 'researchgroup':
+        $title = 'Research Group Performance Report';
+        $cols  = ['#','Research Group','Code','Faculty','Lecturers','Publications','Grants','Grant Amount (RM)','Income (RM)'];
+        $facWhereRG = $facultyId !== 'all' ? " AND rg.faculty_id = " . (int)$facultyId : '';
+        $ycPub = $year !== 'all' ? " AND p.pub_year = " . (int)$year : '';
+        $ycGr  = $year !== 'all' ? " AND YEAR(g.start_date) = " . (int)$year : '';
+        $ycInc = $year !== 'all' ? " AND inc.year_received = " . (int)$year : '';
+        $sql = "SELECT rg.group_code, rg.group_name, f.faculty_code,
+                  (SELECT COUNT(*) FROM tbl_lecturer l WHERE l.research_group_id = rg.group_id) AS lecturers,
+                  (SELECT COUNT(*) FROM tbl_publication p
+                     JOIN tbl_research_data rd ON p.data_id = rd.data_id
+                     JOIN tbl_lecturer l ON l.lecturer_id = rd.lecturer_id
+                   WHERE l.research_group_id = rg.group_id AND rd.status='Approved' AND rd.is_deleted=0 $ycPub) AS pubs,
+                  (SELECT COUNT(*) FROM tbl_grant g
+                     JOIN tbl_research_data rd ON g.data_id = rd.data_id
+                     JOIN tbl_lecturer l ON l.lecturer_id = rd.lecturer_id
+                   WHERE l.research_group_id = rg.group_id AND rd.status='Approved' AND rd.is_deleted=0 $ycGr) AS grants,
+                  (SELECT COALESCE(SUM(g.amount),0) FROM tbl_grant g
+                     JOIN tbl_research_data rd ON g.data_id = rd.data_id
+                     JOIN tbl_lecturer l ON l.lecturer_id = rd.lecturer_id
+                   WHERE l.research_group_id = rg.group_id AND rd.status='Approved' AND rd.is_deleted=0 $ycGr) AS grant_amount,
+                  (SELECT COALESCE(SUM(inc.amount),0) FROM tbl_research_income inc
+                     JOIN tbl_research_data rd ON inc.data_id = rd.data_id
+                     JOIN tbl_lecturer l ON l.lecturer_id = rd.lecturer_id
+                   WHERE l.research_group_id = rg.group_id AND rd.status='Approved' AND rd.is_deleted=0 $ycInc) AS income
+                FROM tbl_research_group rg
+                JOIN tbl_faculty f ON f.faculty_id = rg.faculty_id
+                WHERE rg.is_active = 1 $facWhereRG
+                ORDER BY f.faculty_code, rg.group_name";
+        $st = $db->prepare($sql); $st->execute(); $data = $st->fetchAll();
+        foreach ($data as $i => $r) {
+            $rows[] = [$i+1, $r['group_name'], $r['group_code'], $r['faculty_code'],
+                       (int)$r['lecturers'], (int)$r['pubs'], (int)$r['grants'],
+                       number_format((float)$r['grant_amount'], 2),
+                       number_format((float)$r['income'], 2)];
+        }
+        break;
+
     case 'individual':
         $title = 'Individual Lecturer Report';
         $cols  = ['#','Lecturer','Faculty','Scopus ID','Total Pubs','Q1','Q2','Total Grants','Grants as PI','H-Index','Citations','Income (RM)'];
@@ -287,10 +325,24 @@ if ($format === 'CSV') {
 
 } else {
     // ── PDF — visual, print-ready HTML (dashboard style) ──
-    // Detect numeric columns + their sums (column 0 is the label)
+    // Choose label column = first mostly-text column (skip the "#" index)
+    $labelIdx = 0;
+    foreach ($cols as $ci => $cn) {
+        if (trim((string)$cn) === '#') continue;
+        $txt = 0; $tot = 0;
+        foreach ($rows as $r) {
+            $v = isset($r[$ci]) ? trim((string)$r[$ci]) : '';
+            if ($v === '') continue;
+            $tot++;
+            if (!is_numeric(str_replace(',', '', $v))) $txt++;
+        }
+        if ($tot > 0 && $txt >= $tot * 0.6) { $labelIdx = $ci; break; }
+    }
+
+    // Detect numeric metric columns + their sums (skip label column and "#")
     $numCols = [];
     foreach ($cols as $ci => $cn) {
-        if ($ci === 0) continue;
+        if ($ci === $labelIdx || trim((string)$cn) === '#') continue;
         $sum = 0.0; $n = 0;
         foreach ($rows as $r) {
             $v = isset($r[$ci]) ? str_replace(',', '', (string)$r[$ci]) : '';
@@ -310,10 +362,12 @@ if ($format === 'CSV') {
         $kpis[] = ['label' => $cols[$ci], 'value' => $val];
     }
 
-    // Chart data: top 12 rows by the primary metric
+    // Chart data: top 12 rows (with a non-zero metric) by the primary metric
     $chartLabels = $chartValues = [];
     if ($primaryIdx !== null) {
-        $cr = $rows;
+        $cr = array_values(array_filter($rows, function ($r) use ($primaryIdx) {
+            return (float)str_replace(',', '', (string)($r[$primaryIdx] ?? 0)) > 0;
+        }));
         usort($cr, function ($a, $b) use ($primaryIdx) {
             $av = (float)str_replace(',', '', (string)($a[$primaryIdx] ?? 0));
             $bv = (float)str_replace(',', '', (string)($b[$primaryIdx] ?? 0));
@@ -321,8 +375,8 @@ if ($format === 'CSV') {
         });
         $cr = array_slice($cr, 0, 12);
         foreach ($cr as $r) {
-            $lbl = (string)($r[0] ?? '');
-            if (mb_strlen($lbl) > 28) $lbl = mb_substr($lbl, 0, 26) . '…';
+            $lbl = (string)($r[$labelIdx] ?? '');
+            if (mb_strlen($lbl) > 16) $lbl = mb_substr($lbl, 0, 15) . '…';
             $chartLabels[] = $lbl;
             $chartValues[] = (float)str_replace(',', '', (string)($r[$primaryIdx] ?? 0));
         }
@@ -334,7 +388,7 @@ if ($format === 'CSV') {
     $html .= '<title>' . htmlspecialchars($title) . '</title>';
     if ($hasChart) $html .= '<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>';
     $html .= '<style>
-        *{box-sizing:border-box}
+        *{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}
         body{font-family:Arial,Helvetica,sans-serif;font-size:11px;color:#1e293b;margin:0;background:#fff}
         .wrap{padding:26px 30px}
         .cover{background:linear-gradient(135deg,#0B3C5D,#1E88A8);color:#fff;border-radius:12px;padding:22px 26px;margin-bottom:18px}
@@ -347,18 +401,18 @@ if ($format === 'CSV') {
         .kpi{flex:1;min-width:130px;border:1px solid #e2e8f0;border-radius:10px;padding:14px 16px;background:#f8fafc}
         .kpi .v{font-size:24px;font-weight:700;color:#0B3C5D;line-height:1.1}
         .kpi .l{font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:.4px;margin-top:3px}
-        .charts{display:flex;gap:16px;margin-bottom:18px;flex-wrap:wrap}
+        .charts{display:flex;gap:16px;margin-bottom:32px;flex-wrap:wrap}
         .chartbox{flex:1;min-width:300px;border:1px solid #e2e8f0;border-radius:10px;padding:14px}
         .chartbox h3{font-size:12px;margin:0 0 10px;color:#0B3C5D}
         table{width:100%;border-collapse:collapse;margin-top:6px}
         th{background:#0B3C5D;color:#fff;padding:6px 8px;text-align:left;font-size:10px}
         td{padding:5px 8px;border-bottom:1px solid #e2e8f0;font-size:10px}
         tr:nth-child(even) td{background:#f8fafc}
-        .sec-title{font-size:13px;color:#0B3C5D;font-weight:700;margin:0 0 8px}
+        .sec-title{font-size:13px;color:#0B3C5D;font-weight:700;margin:6px 0 8px;clear:both}
         .footer{margin-top:22px;font-size:10px;color:#94a3b8;text-align:center}
         .toolbar{text-align:right;margin-bottom:10px}
         .btnp{background:#0B3C5D;color:#fff;border:none;border-radius:6px;padding:8px 16px;font-size:12px;cursor:pointer}
-        @media print{.toolbar{display:none}.wrap{padding:0}.cover{border-radius:0}.chartbox,.kpi{break-inside:avoid}}
+        @media print{.toolbar{display:none}.wrap{padding:0}.cover{border-radius:0}.charts{page-break-inside:avoid}.chartbox{min-width:0;page-break-inside:avoid}.kpi{break-inside:avoid;page-break-inside:avoid}.chartbox canvas{max-width:100%!important;height:auto!important}}
     </style></head><body><div class="wrap">';
 
     $html .= '<div class="toolbar"><button class="btnp" onclick="window.print()">Print / Save as PDF</button></div>';
@@ -376,8 +430,8 @@ if ($format === 'CSV') {
 
     if ($hasChart) {
         $html .= '<div class="charts">';
-        $html .= '<div class="chartbox"><h3>Top by ' . htmlspecialchars($metricName) . '</h3><div style="height:240px;position:relative"><canvas id="barC"></canvas></div></div>';
-        $html .= '<div class="chartbox"><h3>Distribution — ' . htmlspecialchars($metricName) . '</h3><div style="height:240px;position:relative"><canvas id="pieC"></canvas></div></div>';
+        $html .= '<div class="chartbox"><h3>Top by ' . htmlspecialchars($metricName) . '</h3><div style="height:270px;position:relative"><canvas id="barC"></canvas></div></div>';
+        $html .= '<div class="chartbox"><h3>Distribution — ' . htmlspecialchars($metricName) . '</h3><div style="height:270px;position:relative"><canvas id="pieC"></canvas></div></div>';
         $html .= '</div>';
     }
 
@@ -400,11 +454,12 @@ if ($format === 'CSV') {
         const V = ' . json_encode($chartValues) . ';
         const P = ["#0B3C5D","#1E88A8","#2BB6A3","#7C9CBF","#F4A259","#BC4B51","#8CB369","#5B5F97","#E9C46A","#A8DADC","#457B9D","#E76F51"];
         function draw(){
-          new Chart(document.getElementById("barC"),{type:"bar",data:{labels:L,datasets:[{data:V,backgroundColor:"#1E88A8"}]},options:{responsive:true,maintainAspectRatio:false,animation:false,plugins:{legend:{display:false}},scales:{x:{ticks:{font:{size:9},maxRotation:60,minRotation:30}},y:{beginAtZero:true}}}});
+          new Chart(document.getElementById("barC"),{type:"bar",data:{labels:L,datasets:[{data:V,backgroundColor:"#1E88A8"}]},options:{responsive:true,maintainAspectRatio:false,animation:false,plugins:{legend:{display:false}},scales:{x:{ticks:{font:{size:8},maxRotation:90,minRotation:90,autoSkip:false}},y:{beginAtZero:true}}}});
           const top=L.slice(0,6),tv=V.slice(0,6);
           if(V.length>6){top.push("Others");tv.push(V.slice(6).reduce((a,b)=>a+b,0));}
-          new Chart(document.getElementById("pieC"),{type:"doughnut",data:{labels:top,datasets:[{data:tv,backgroundColor:P}]},options:{responsive:true,maintainAspectRatio:false,animation:false,plugins:{legend:{position:"right",labels:{font:{size:9}}}}}});
-          setTimeout(function(){window.print();},500);
+          new Chart(document.getElementById("pieC"),{type:"doughnut",data:{labels:top,datasets:[{data:tv,backgroundColor:P}]},options:{responsive:true,maintainAspectRatio:false,animation:false,plugins:{legend:{position:"bottom",labels:{font:{size:9},boxWidth:10,padding:8}}}}});
+          window.addEventListener("beforeprint",function(){var b=Chart.getChart("barC");if(b)b.resize();var p=Chart.getChart("pieC");if(p)p.resize();});
+          requestAnimationFrame(function(){ setTimeout(function(){window.print();},800); });
         }
         if(window.Chart){draw();}else{window.addEventListener("load",function(){ if(window.Chart){draw();}else{setTimeout(function(){window.print();},400);} });}
         </script>';
