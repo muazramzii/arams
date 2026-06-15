@@ -53,6 +53,7 @@ $lecNav = [
 $admNav = [
     ['id' => 'dashboard',  'label' => 'Dashboard',       'icon' => 'tachometer-alt', 'url' => '/arams/pages/admin/dashboard.php'],
     ['id' => 'lecturers',  'label' => 'All Lecturers',   'icon' => 'users',          'url' => '/arams/pages/admin/lecturers.php'],
+    ['id' => 'researchgroups', 'label' => 'Research Groups', 'icon' => 'sitemap',    'url' => '/arams/pages/admin/research_groups.php'],
   
     ['id' => 'analytics',  'label' => 'Analytics',       'icon' => 'chart-line',     'url' => '/arams/pages/admin/analytics.php'],
     ['id' => 'reports',    'label' => 'Reports',         'icon' => 'file-alt',       'url' => '/arams/pages/admin/reports.php'],

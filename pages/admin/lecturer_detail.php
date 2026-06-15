@@ -162,7 +162,10 @@ body.edit-mode .view-only{display:none}
 .edit-row{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:6px}
 </style>
 
-<!-- Back button + Edit Mode -->
+<?php $editMode = (($_GET['edit'] ?? '') === '1'); ?>
+<?php if ($editMode): ?><script>document.body.classList.add('edit-mode');</script><?php endif; ?>
+
+<!-- Back button + Edit toggle -->
 <div style="margin-bottom:1rem;display:flex;gap:.75rem;flex-wrap:wrap">
     <a href="/arams/pages/admin/lecturers.php" class="btn btn-outline btn-sm">
         <i class="fas fa-arrow-left"></i> Back to All Lecturers
@@ -171,11 +174,15 @@ body.edit-mode .view-only{display:none}
        class="btn btn-primary btn-sm">
         <i class="fas fa-file-alt"></i> Generate Performance Report
     </a>
-    <button id="editModeBtn" type="button" class="btn btn-sm"
-            style="background:var(--teal);color:#fff"
-            onclick="toggleEditMode()">
-        <i class="fas fa-pen"></i> <span id="editModeLabel">Edit Mode</span>
-    </button>
+    <?php if ($editMode): ?>
+    <a href="/arams/pages/admin/lecturer_detail.php?id=<?= $lecId ?>" class="btn btn-sm" style="background:#64748b;color:#fff">
+        <i class="fas fa-check"></i> Done Editing
+    </a>
+    <?php else: ?>
+    <a href="/arams/pages/admin/lecturer_detail.php?id=<?= $lecId ?>&edit=1" class="btn btn-sm" style="background:var(--teal);color:#fff">
+        <i class="fas fa-pen"></i> Edit Mode
+    </a>
+    <?php endif; ?>
 </div>
 
 <!-- ── PROFILE HEADER ─────────────────────────────────── -->
@@ -514,18 +521,9 @@ body.edit-mode .view-only{display:none}
                      target="_blank" style="color:var(--teal)">DOI ↗</a>
                 <?php endif; ?>
             </div>
-            <!-- inline edit: pub_type -->
             <div class="edit-row edit-only">
-                <span style="font-size:11px;color:var(--muted)">Type:</span>
-                <select class="inline-select" data-pubid="<?= $p['publication_id'] ?>">
-                    <?php foreach ($PUB_TYPES as $o): ?>
-                    <option value="<?= $o ?>" <?= $o === $p['pub_type'] ? 'selected' : '' ?>><?= $o ?></option>
-                    <?php endforeach; ?>
-                </select>
-                <button class="save-pill" onclick="savePub(this,<?= $p['publication_id'] ?>)">Save</button>
-                <span class="saved-tick" id="tick_pub_<?= $p['publication_id'] ?>">✓</span>
-                <button class="save-pill" onclick="editRecord('publication',<?= $p['data_id'] ?>)">Edit</button>
-                <button class="save-pill" style="background:#dc2626" onclick="deleteRecord(<?= $p['data_id'] ?>)">Delete</button>
+                <button class="save-pill" onclick="editRecord('publication',<?= $p['data_id'] ?>)"><i class="fas fa-pen"></i> Edit</button>
+                <button class="save-pill" style="background:#dc2626" onclick="deleteRecord(<?= $p['data_id'] ?>)"><i class="fas fa-trash"></i> Delete</button>
             </div>
         </div>
         <?php endforeach; ?>
@@ -566,24 +564,8 @@ body.edit-mode .view-only{display:none}
                 </div>
                 <!-- inline edit: funder / grant_level / grant_category -->
                 <div class="edit-row edit-only">
-                    <input class="inline-input" style="width:120px" placeholder="Funder"
-                           data-grantfunder="<?= $g['grant_id'] ?>"
-                           value="<?= htmlspecialchars($g['funder'] ?? '') ?>">
-                    <select class="inline-select" style="width:110px" data-grantlevel="<?= $g['grant_id'] ?>">
-                        <option value="">— Level —</option>
-                        <?php foreach ($GRANT_LEVELS as $lv): ?>
-                        <option value="<?= $lv ?>" <?= $lv === ($g['grant_level'] ?? '') ? 'selected' : '' ?>><?= $lv ?></option>
-                        <?php endforeach; ?>
-                    </select>
-                    <select class="inline-select" data-grantcat="<?= $g['grant_id'] ?>">
-                        <?php foreach ($GRANT_CATS as $o): ?>
-                        <option value="<?= $o ?>" <?= $o === $g['grant_category'] ? 'selected' : '' ?>><?= $o ?></option>
-                        <?php endforeach; ?>
-                    </select>
-                    <button class="save-pill" onclick="saveGrant(this,<?= $g['grant_id'] ?>)">Save</button>
-                    <span class="saved-tick" id="tick_grant_<?= $g['grant_id'] ?>">✓</span>
-                    <button class="save-pill" onclick="editRecord('grant',<?= $g['data_id'] ?>)">Edit</button>
-                    <button class="save-pill" style="background:#dc2626" onclick="deleteRecord(<?= $g['data_id'] ?>)">Delete</button>
+                    <button class="save-pill" onclick="editRecord('grant',<?= $g['data_id'] ?>)"><i class="fas fa-pen"></i> Edit</button>
+                    <button class="save-pill" style="background:#dc2626" onclick="deleteRecord(<?= $g['data_id'] ?>)"><i class="fas fa-trash"></i> Delete</button>
                 </div>
             </div>
             <?php endforeach; ?>
@@ -662,18 +644,11 @@ body.edit-mode .view-only{display:none}
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;font-size:12px;color:var(--muted)">
             <span style="font-weight:600">Type of Patent:</span>
-            <span class="view-only badge badge-purple"><?= htmlspecialchars($ip['ip_type']) ?></span>
-            <select class="edit-only inline-select" data-ipid="<?= $ip['ip_id'] ?>">
-                <?php foreach ($IP_TYPES as $o): ?>
-                <option value="<?= $o ?>" <?= $o === $ip['ip_type'] ? 'selected' : '' ?>><?= $o ?></option>
-                <?php endforeach; ?>
-            </select>
+            <span class="badge badge-purple"><?= htmlspecialchars($ip['ip_type']) ?></span>
             <?php if ($ip['ip_number']): ?><span><?= htmlspecialchars($ip['ip_number']) ?></span><?php endif; ?>
             <span class="badge badge-green"><?= htmlspecialchars($ip['registration_status']) ?></span>
-            <button class="save-pill edit-only" onclick="saveIp(this,<?= $ip['ip_id'] ?>)">Save</button>
-            <span class="saved-tick" id="tick_ip_<?= $ip['ip_id'] ?>">✓</span>
-            <button class="save-pill edit-only" onclick="editRecord('ip',<?= $ip['data_id'] ?>)">Edit</button>
-            <button class="save-pill edit-only" style="background:#dc2626" onclick="deleteRecord(<?= $ip['data_id'] ?>)">Delete</button>
+            <button class="save-pill edit-only" onclick="editRecord('ip',<?= $ip['data_id'] ?>)"><i class="fas fa-pen"></i> Edit</button>
+            <button class="save-pill edit-only" style="background:#dc2626" onclick="deleteRecord(<?= $ip['data_id'] ?>)"><i class="fas fa-trash"></i> Delete</button>
         </div>
     </div>
     <?php endforeach; ?>
@@ -858,11 +833,6 @@ function submitAdminRecord(btn){
 }
 const API = '/arams/api/update_lecturer_admin.php';
 
-function toggleEditMode(){
-    document.body.classList.toggle('edit-mode');
-    const on = document.body.classList.contains('edit-mode');
-    document.getElementById('editModeLabel').textContent = on ? 'Exit Edit Mode' : 'Edit Mode';
-}
 async function post(payload, tickId, btn){
     const orig = btn ? btn.textContent : '';
     if(btn){ btn.disabled = true; btn.textContent = 'Saving…'; }
@@ -883,21 +853,6 @@ function saveProfile(){
         status_researcher: document.getElementById('ef_sr').value,
         managerial_position: document.getElementById('ef_mp').checked
     }, 'tick_profile', document.querySelector('#profileEditPanel .save-pill'));
-}
-function savePub(btn, id){
-    const sel = document.querySelector('select[data-pubid="'+id+'"]');
-    post({type:'publication', id:id, pub_type: sel.value}, 'tick_pub_'+id, btn);
-}
-function saveGrant(btn, id){
-    post({type:'grant', id:id,
-        funder: document.querySelector('input[data-grantfunder="'+id+'"]').value,
-        grant_level: document.querySelector('select[data-grantlevel="'+id+'"]').value,
-        grant_category: document.querySelector('select[data-grantcat="'+id+'"]').value
-    }, 'tick_grant_'+id, btn);
-}
-function saveIp(btn, id){
-    const sel = document.querySelector('select[data-ipid="'+id+'"]');
-    post({type:'ip', id:id, ip_type: sel.value}, 'tick_ip_'+id, btn);
 }
 </script>
 

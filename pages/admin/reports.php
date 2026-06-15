@@ -39,6 +39,7 @@ $groups = [
     ],
     'By people & unit' => [
         ['id'=>'faculty','name'=>'Faculty Performance Report','desc'=>'Compare performance across faculties','icon'=>'fa-building-columns','color'=>'#0f6e56','bg'=>'#e1f5ee'],
+        ['id'=>'researchgroup','name'=>'Research Group Report','desc'=>'Output & funding by research group','icon'=>'fa-users-rectangle','color'=>'#854f0b','bg'=>'#faeeda'],
         ['id'=>'individual','name'=>'Individual Lecturer Report','desc'=>'Tabular record list for one lecturer','icon'=>'fa-user','color'=>'#185fa5','bg'=>'#e6f1fb'],
         ['id'=>'lecturer','name'=>'Lecturer Performance Report','desc'=>'Visual analytics for one lecturer','icon'=>'fa-chart-pie','color'=>'#993c1d','bg'=>'#faece7'],
     ],

@@ -67,6 +67,17 @@ $grantRoles = $db->prepare(
 );
 $grantRoles->execute([$facId]); $grantRoles = $grantRoles->fetchAll();
 
+$grantStatus = $db->prepare(
+    "SELECT
+        SUM(CASE WHEN g.end_date IS NULL OR g.end_date >= CURDATE() THEN 1 ELSE 0 END) AS active,
+        SUM(CASE WHEN g.end_date IS NOT NULL AND g.end_date < CURDATE() THEN 1 ELSE 0 END) AS nonactive
+     FROM tbl_grant g
+     JOIN tbl_research_data rd ON g.data_id=rd.data_id
+     JOIN tbl_lecturer l ON l.lecturer_id=rd.lecturer_id
+     WHERE rd.status='Approved' AND rd.is_deleted=0 AND l.faculty_id=?"
+);
+$grantStatus->execute([$facId]); $grantStatus = $grantStatus->fetch();
+
 // ── KPI task completion by lecturer (TDPP-specific) ──────
 $kpiByLec = $db->prepare(
     "SELECT l.full_name,
@@ -231,6 +242,31 @@ $grantRoleColors= ['#0B3C5D','#1B998B','#f59e0b'];
     </div>
 </div>
 
+<!-- Grant Status: Active vs Non-Active (clickable) -->
+<?php $gsActive=(int)($grantStatus['active']??0); $gsNon=(int)($grantStatus['nonactive']??0); $gsTot=$gsActive+$gsNon; ?>
+<div class="card" style="margin-bottom:1rem">
+    <div class="card-title"><i class="fas fa-circle-play" style="color:#22c55e"></i> Grant Status — Active vs Non-Active
+        <span style="font-size:11px;color:var(--muted);font-weight:400;margin-left:4px">(click for details)</span>
+    </div>
+    <?php if ($gsTot === 0): ?>
+    <p style="color:var(--muted);font-size:13px;text-align:center;padding:2rem 0">No grants yet.</p>
+    <?php else: ?>
+    <div id="grantStatusDonut" style="margin-bottom:1rem"></div>
+    <div style="margin-bottom:.6rem;cursor:pointer" onclick="drillDown('grantactive','Active')" title="Click to view active grants">
+        <div style="display:flex;justify-content:space-between;font-size:13px">
+            <div style="display:flex;align-items:center;gap:7px"><div style="width:10px;height:10px;border-radius:50%;background:#22c55e"></div><span>Active</span></div>
+            <strong><?= $gsActive ?></strong>
+        </div>
+    </div>
+    <div style="cursor:pointer" onclick="drillDown('grantactive','Non-Active')" title="Click to view non-active grants">
+        <div style="display:flex;justify-content:space-between;font-size:13px">
+            <div style="display:flex;align-items:center;gap:7px"><div style="width:10px;height:10px;border-radius:50%;background:#ef4444"></div><span>Non-Active</span></div>
+            <strong><?= $gsNon ?></strong>
+        </div>
+    </div>
+    <?php endif; ?>
+</div>
+
 <!-- Row 4: KPI Completion by Lecturer (TDPP-specific) -->
 <div class="card">
     <div class="card-title"><i class="fas fa-ranking-star" style="color:#f59e0b"></i> KPI Completion by Lecturer</div>
@@ -293,6 +329,13 @@ document.addEventListener('DOMContentLoaded', function () {
         <?php foreach ($grantRoles as $i => $gr): $col = $grantRoleColors[$i % count($grantRoleColors)]; ?>
         { label: '<?= addslashes($gr['role']) ?>', value: <?= (int)$gr['cnt'] ?>, color: '<?= $col ?>' },
         <?php endforeach; ?>
+    ]);
+    <?php endif; ?>
+
+    <?php if ($gsTot > 0): ?>
+    renderDonut('grantStatusDonut', [
+        { label:'Active',     value:<?= $gsActive ?>, color:'#22c55e' },
+        { label:'Non-Active', value:<?= $gsNon ?>,    color:'#ef4444' }
     ]);
     <?php endif; ?>
 });

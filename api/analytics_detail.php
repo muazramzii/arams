@@ -44,6 +44,7 @@ $map = [
     'pubtype'   => ['kind'=>'publication','table'=>'tbl_publication','col'=>'pub_type',       'titleFmt'=>'Publications — %s'],
     'grantcat'  => ['kind'=>'grant',      'table'=>'tbl_grant',      'col'=>'grant_category', 'titleFmt'=>'Grants — %s'],
     'grantrole' => ['kind'=>'grant',      'table'=>'tbl_grant',      'col'=>'role',           'titleFmt'=>'Grants — Role: %s'],
+    'grantactive' => ['kind'=>'grant',    'table'=>'tbl_grant',      'col'=>'__active__',     'titleFmt'=>'%s Grants'],
 ];
 
 if (!isset($map[$type])) {
@@ -58,6 +59,18 @@ $alias = ($kind === 'publication') ? 'p' : 'g';
 // year is numeric, everything else is a string
 $boundValue = ($type === 'year') ? (int)$value : $value;
 
+// Build the filter clause. Most types match a column; grantactive is a
+// computed end_date condition (Active = open/future end, else expired).
+if ($type === 'grantactive') {
+    $filterClause = ($value === 'Active')
+        ? "(g.end_date IS NULL OR g.end_date >= CURDATE())"
+        : "(g.end_date IS NOT NULL AND g.end_date < CURDATE())";
+    $filterParams = [];
+} else {
+    $filterClause = "{$alias}.{$col} = ?";
+    $filterParams = [$boundValue];
+}
+
 // ============================================================
 //  MODE 1 — Per-faculty summary (Admin only, no faculty chosen yet)
 // ============================================================
@@ -69,11 +82,11 @@ if ($wantFacultySummary) {
             JOIN tbl_research_data rd ON {$alias}.data_id = rd.data_id
             JOIN tbl_lecturer l       ON l.lecturer_id   = rd.lecturer_id
             JOIN tbl_faculty f        ON f.faculty_id    = l.faculty_id
-            WHERE rd.status='Approved' AND rd.is_deleted=0 AND {$alias}.{$col} = ?
+            WHERE rd.status='Approved' AND rd.is_deleted=0 AND {$filterClause}
             GROUP BY f.faculty_id, f.faculty_code, f.faculty_name
             ORDER BY cnt DESC, f.faculty_name";
     $stmt = $db->prepare($sql);
-    $stmt->execute([$boundValue]);
+    $stmt->execute($filterParams);
     $facs = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     $total = 0;
@@ -127,7 +140,7 @@ if ($kind === 'publication') {
             FROM tbl_publication p
             JOIN tbl_research_data rd ON p.data_id=rd.data_id
             JOIN tbl_lecturer l       ON l.lecturer_id=rd.lecturer_id
-            WHERE rd.status='Approved' AND rd.is_deleted=0 AND p.{$col} = ?{$scopeSql}
+            WHERE rd.status='Approved' AND rd.is_deleted=0 AND {$filterClause}{$scopeSql}
             ORDER BY l.full_name, p.pub_year DESC, p.title";
 } else {
     $sql = "SELECT l.full_name AS lecturer_name, l.title AS lecturer_title,
@@ -136,11 +149,11 @@ if ($kind === 'publication') {
             FROM tbl_grant g
             JOIN tbl_research_data rd ON g.data_id=rd.data_id
             JOIN tbl_lecturer l       ON l.lecturer_id=rd.lecturer_id
-            WHERE rd.status='Approved' AND rd.is_deleted=0 AND g.{$col} = ?{$scopeSql}
+            WHERE rd.status='Approved' AND rd.is_deleted=0 AND {$filterClause}{$scopeSql}
             ORDER BY l.full_name, g.grant_title";
 }
 
-$params = array_merge([$boundValue], $scopeParams);
+$params = array_merge($filterParams, $scopeParams);
 $stmt = $db->prepare($sql);
 $stmt->execute($params);
 $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);

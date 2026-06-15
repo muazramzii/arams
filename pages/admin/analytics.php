@@ -48,6 +48,14 @@ if ($isAdmin) {
          WHERE rd.status='Approved' AND rd.is_deleted=0 GROUP BY role ORDER BY cnt DESC"
     )->fetchAll();
 
+    $grantStatus = $db->query(
+        "SELECT
+            SUM(CASE WHEN g.end_date IS NULL OR g.end_date >= CURDATE() THEN 1 ELSE 0 END) AS active,
+            SUM(CASE WHEN g.end_date IS NOT NULL AND g.end_date < CURDATE() THEN 1 ELSE 0 END) AS nonactive
+         FROM tbl_grant g JOIN tbl_research_data rd ON g.data_id=rd.data_id
+         WHERE rd.status='Approved' AND rd.is_deleted=0"
+    )->fetch();
+
     $facPerf = $db->query(
         "SELECT f.faculty_code, SUM(k.total_publications) AS pubs,
                 SUM(k.total_grants) AS grants, AVG(k.current_hindex) AS hindex
@@ -104,6 +112,15 @@ if ($isAdmin) {
          GROUP BY role ORDER BY cnt DESC"
     );
     $grantRoles->execute([$lecId]); $grantRoles = $grantRoles->fetchAll();
+
+    $grantStatus = $db->prepare(
+        "SELECT
+            SUM(CASE WHEN g.end_date IS NULL OR g.end_date >= CURDATE() THEN 1 ELSE 0 END) AS active,
+            SUM(CASE WHEN g.end_date IS NOT NULL AND g.end_date < CURDATE() THEN 1 ELSE 0 END) AS nonactive
+         FROM tbl_grant g JOIN tbl_research_data rd ON g.data_id=rd.data_id
+         WHERE rd.lecturer_id=? AND rd.status='Approved' AND rd.is_deleted=0"
+    );
+    $grantStatus->execute([$lecId]); $grantStatus = $grantStatus->fetch();
 
     $facPerf = [];
 }
@@ -300,6 +317,20 @@ $quartileColors = ['#0B3C5D','#1B998B','#3b82f6','#8b5cf6','#e2e8f0'];
     </div>
 </div>
 
+<!-- Grant Status: Active vs Non-Active (clickable) -->
+<div class="card" style="margin-bottom:1rem">
+    <div class="card-title">
+        <i class="fas fa-circle-play" style="color:#22c55e"></i>
+        Grant Status — Active vs Non-Active
+        <span style="font-size:11px;color:var(--muted);font-weight:400;margin-left:4px">(click a segment for details)</span>
+    </div>
+    <?php if (((int)($grantStatus['active'] ?? 0) + (int)($grantStatus['nonactive'] ?? 0)) === 0): ?>
+    <p style="color:var(--muted);font-size:13px;text-align:center;padding:2rem 0">No grants yet.</p>
+    <?php else: ?>
+    <div id="grantStatusDonut"></div>
+    <?php endif; ?>
+</div>
+
 <!-- Row 4: Faculty Comparison (Admin only) -->
 <?php if ($isAdmin && !empty($facPerf)): ?>
 <div class="card">
@@ -392,15 +423,23 @@ document.addEventListener('DOMContentLoaded', function () {
     ]);
     <?php endif; ?>
 
+    <?php if (((int)($grantStatus['active'] ?? 0) + (int)($grantStatus['nonactive'] ?? 0)) > 0): ?>
+    renderDonut('grantStatusDonut', [
+        { label: 'Active',     value: <?= (int)($grantStatus['active'] ?? 0) ?>,    color: '#22c55e' },
+        { label: 'Non-Active', value: <?= (int)($grantStatus['nonactive'] ?? 0) ?>, color: '#ef4444' }
+    ]);
+    <?php endif; ?>
+
     // Attach donut hover tooltips + legend clicks after render
     setTimeout(function() {
-        ['quartileDonut','pubTypeDonut','grantCatDonut','grantRoleDonut'].forEach(function(id){
+        ['quartileDonut','pubTypeDonut','grantCatDonut','grantRoleDonut','grantStatusDonut'].forEach(function(id){
             attachDonutHovers(id);
         });
         attachDonutClicks('quartileDonut', 'quartile');
         attachDonutClicks('pubTypeDonut',  'pubtype');
         attachDonutClicks('grantCatDonut', 'grantcat');
         attachDonutClicks('grantRoleDonut','grantrole');
+        attachDonutClicks('grantStatusDonut','grantactive');
     }, 300);
 });
 

@@ -58,7 +58,7 @@ switch ($type) {
 
     case 'grants':
         $title = 'Grants & Funding Report';
-        $cols  = ['#','Lecturer','Faculty','Grant Title','Code','Category','Level','Role','Amount (RM)','Status','Start','End'];
+        $cols  = ['#','Lecturer','Faculty','Grant Title','Code','Category','Level','Role','Amount (RM)','Status','Active?','Start','End'];
         $sql   = "SELECT l.full_name, f.faculty_code, g.grant_title, g.grant_code,
                          g.grant_category, g.grant_level, g.role, g.amount,
                          g.status, g.start_date, g.end_date
@@ -69,11 +69,13 @@ switch ($type) {
                   WHERE rd.status = 'Approved' AND rd.is_deleted=0 $yearWhereG $facWhere
                   ORDER BY g.start_date DESC";
         $st = $db->prepare($sql); $st->execute(); $data = $st->fetchAll();
+        $today = date('Y-m-d');
         foreach ($data as $i => $r) {
+            $active = (empty($r['end_date']) || $r['end_date'] >= $today) ? 'Active' : 'Non-Active';
             $rows[] = [$i+1, $r['full_name'], $r['faculty_code'], $r['grant_title'],
                        $r['grant_code'], $r['grant_category'], $r['grant_level'],
                        $r['role'], $r['amount'] ? number_format((float)$r['amount'],2) : '',
-                       $r['status'], $r['start_date'], $r['end_date']];
+                       $r['status'], $active, $r['start_date'], $r['end_date']];
         }
         break;
 
