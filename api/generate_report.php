@@ -286,37 +286,126 @@ if ($format === 'CSV') {
     exit;
 
 } else {
-    // ── PDF — generate printable HTML ────────────────────
+    // ── PDF — visual, print-ready HTML (dashboard style) ──
+    // Detect numeric columns + their sums (column 0 is the label)
+    $numCols = [];
+    foreach ($cols as $ci => $cn) {
+        if ($ci === 0) continue;
+        $sum = 0.0; $n = 0;
+        foreach ($rows as $r) {
+            $v = isset($r[$ci]) ? str_replace(',', '', (string)$r[$ci]) : '';
+            if ($v !== '' && is_numeric($v)) { $sum += (float)$v; $n++; }
+        }
+        if ($n > 0 && $n >= count($rows) * 0.4) $numCols[$ci] = $sum;
+    }
+    arsort($numCols);
+    $primaryIdx = $numCols ? array_key_first($numCols) : null;
+
+    // KPI cards: total records + up to 3 largest numeric sums
+    $kpis = [['label' => 'Total Records', 'value' => number_format(count($rows))]];
+    $kc = 0;
+    foreach ($numCols as $ci => $sum) {
+        if ($kc++ >= 3) break;
+        $val = ($sum == floor($sum)) ? number_format($sum) : number_format($sum, 2);
+        $kpis[] = ['label' => $cols[$ci], 'value' => $val];
+    }
+
+    // Chart data: top 12 rows by the primary metric
+    $chartLabels = $chartValues = [];
+    if ($primaryIdx !== null) {
+        $cr = $rows;
+        usort($cr, function ($a, $b) use ($primaryIdx) {
+            $av = (float)str_replace(',', '', (string)($a[$primaryIdx] ?? 0));
+            $bv = (float)str_replace(',', '', (string)($b[$primaryIdx] ?? 0));
+            return $bv <=> $av;
+        });
+        $cr = array_slice($cr, 0, 12);
+        foreach ($cr as $r) {
+            $lbl = (string)($r[0] ?? '');
+            if (mb_strlen($lbl) > 28) $lbl = mb_substr($lbl, 0, 26) . '…';
+            $chartLabels[] = $lbl;
+            $chartValues[] = (float)str_replace(',', '', (string)($r[$primaryIdx] ?? 0));
+        }
+    }
+    $hasChart   = $primaryIdx !== null && array_sum($chartValues) > 0;
+    $metricName = $primaryIdx !== null ? $cols[$primaryIdx] : '';
+
     $html  = '<!DOCTYPE html><html><head><meta charset="UTF-8">';
     $html .= '<title>' . htmlspecialchars($title) . '</title>';
+    if ($hasChart) $html .= '<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>';
     $html .= '<style>
-        body { font-family: Arial, sans-serif; font-size: 11px; color: #1e293b; margin: 20px; }
-        h1 { font-size: 16px; color: #0B3C5D; margin-bottom: 4px; }
-        .meta { font-size: 11px; color: #64748b; margin-bottom: 16px; }
-        table { width: 100%; border-collapse: collapse; }
-        th { background: #0B3C5D; color: #fff; padding: 6px 8px; text-align: left; font-size: 10px; }
-        td { padding: 5px 8px; border-bottom: 1px solid #e2e8f0; font-size: 10px; }
-        tr:nth-child(even) td { background: #f8fafc; }
-        .footer { margin-top: 20px; font-size: 10px; color: #94a3b8; text-align: center; }
-        @media print { body { margin: 10px; } }
-    </style></head><body>';
-    $html .= '<h1>UTHM ARAMS — ' . htmlspecialchars($title) . '</h1>';
-    $html .= '<div class="meta">Year: ' . $yearLabel . ' &nbsp;|&nbsp; Generated: ' . date('d M Y H:i') . ' &nbsp;|&nbsp; Total records: ' . count($rows) . '</div>';
-    $html .= '<table><thead><tr>';
-    foreach ($cols as $col) {
-        $html .= '<th>' . htmlspecialchars($col) . '</th>';
+        *{box-sizing:border-box}
+        body{font-family:Arial,Helvetica,sans-serif;font-size:11px;color:#1e293b;margin:0;background:#fff}
+        .wrap{padding:26px 30px}
+        .cover{background:linear-gradient(135deg,#0B3C5D,#1E88A8);color:#fff;border-radius:12px;padding:22px 26px;margin-bottom:18px}
+        .cover .sys{font-size:11px;letter-spacing:1px;text-transform:uppercase;opacity:.85}
+        .cover h1{font-size:22px;margin:6px 0 4px;color:#fff}
+        .cover .meta{font-size:11px;opacity:.92}
+        .kpis{display:flex;gap:12px;margin-bottom:18px;flex-wrap:wrap}
+        .kpi{flex:1;min-width:130px;border:1px solid #e2e8f0;border-radius:10px;padding:14px 16px;background:#f8fafc}
+        .kpi .v{font-size:24px;font-weight:700;color:#0B3C5D;line-height:1.1}
+        .kpi .l{font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:.4px;margin-top:3px}
+        .charts{display:flex;gap:16px;margin-bottom:18px;flex-wrap:wrap}
+        .chartbox{flex:1;min-width:300px;border:1px solid #e2e8f0;border-radius:10px;padding:14px}
+        .chartbox h3{font-size:12px;margin:0 0 10px;color:#0B3C5D}
+        table{width:100%;border-collapse:collapse;margin-top:6px}
+        th{background:#0B3C5D;color:#fff;padding:6px 8px;text-align:left;font-size:10px}
+        td{padding:5px 8px;border-bottom:1px solid #e2e8f0;font-size:10px}
+        tr:nth-child(even) td{background:#f8fafc}
+        .sec-title{font-size:13px;color:#0B3C5D;font-weight:700;margin:0 0 8px}
+        .footer{margin-top:22px;font-size:10px;color:#94a3b8;text-align:center}
+        .toolbar{text-align:right;margin-bottom:10px}
+        .btnp{background:#0B3C5D;color:#fff;border:none;border-radius:6px;padding:8px 16px;font-size:12px;cursor:pointer}
+        @media print{.toolbar{display:none}.wrap{padding:0}.cover{border-radius:0}.chartbox,.kpi{break-inside:avoid}}
+    </style></head><body><div class="wrap">';
+
+    $html .= '<div class="toolbar"><button class="btnp" onclick="window.print()">Print / Save as PDF</button></div>';
+    $html .= '<div class="cover"><div class="sys">UTHM ARAMS</div><h1>' . htmlspecialchars($title) . '</h1>';
+    $html .= '<div class="meta">Year: ' . $yearLabel . ' &nbsp;|&nbsp; Generated: ' . date('d M Y, H:i') . ' &nbsp;|&nbsp; ' . count($rows) . ' records</div></div>';
+
+    $html .= '<div class="kpis">';
+    foreach ($kpis as $k) {
+        $html .= '<div class="kpi"><div class="v">' . htmlspecialchars($k['value']) . '</div><div class="l">' . htmlspecialchars($k['label']) . '</div></div>';
     }
+    $html .= '</div>';
+
+    if ($hasChart) {
+        $html .= '<div class="charts">';
+        $html .= '<div class="chartbox"><h3>Top by ' . htmlspecialchars($metricName) . '</h3><canvas id="barC" height="200"></canvas></div>';
+        $html .= '<div class="chartbox"><h3>Distribution — ' . htmlspecialchars($metricName) . '</h3><canvas id="pieC" height="200"></canvas></div>';
+        $html .= '</div>';
+    }
+
+    $html .= '<div class="sec-title">Detailed Records</div>';
+    $html .= '<table><thead><tr>';
+    foreach ($cols as $col) $html .= '<th>' . htmlspecialchars($col) . '</th>';
     $html .= '</tr></thead><tbody>';
     foreach ($rows as $row) {
         $html .= '<tr>';
-        foreach ($row as $val) {
-            $html .= '<td>' . htmlspecialchars((string)$val) . '</td>';
-        }
+        foreach ($row as $val) $html .= '<td>' . htmlspecialchars((string)$val) . '</td>';
         $html .= '</tr>';
     }
     $html .= '</tbody></table>';
     $html .= '<div class="footer">UTHM Academic Research Analytics and Monitoring System (ARAMS) &copy; ' . date('Y') . '</div>';
-    $html .= '<script>window.onload = function(){ window.print(); }</script>';
+    $html .= '</div>';
+
+    if ($hasChart) {
+        $html .= '<script>
+        const L = ' . json_encode($chartLabels) . ';
+        const V = ' . json_encode($chartValues) . ';
+        const P = ["#0B3C5D","#1E88A8","#2BB6A3","#7C9CBF","#F4A259","#BC4B51","#8CB369","#5B5F97","#E9C46A","#A8DADC","#457B9D","#E76F51"];
+        function draw(){
+          new Chart(document.getElementById("barC"),{type:"bar",data:{labels:L,datasets:[{data:V,backgroundColor:"#1E88A8"}]},options:{animation:false,plugins:{legend:{display:false}},scales:{x:{ticks:{font:{size:9},maxRotation:60,minRotation:30}},y:{beginAtZero:true}}}});
+          const top=L.slice(0,6),tv=V.slice(0,6);
+          if(V.length>6){top.push("Others");tv.push(V.slice(6).reduce((a,b)=>a+b,0));}
+          new Chart(document.getElementById("pieC"),{type:"doughnut",data:{labels:top,datasets:[{data:tv,backgroundColor:P}]},options:{animation:false,plugins:{legend:{position:"right",labels:{font:{size:9}}}}}});
+          setTimeout(function(){window.print();},500);
+        }
+        if(window.Chart){draw();}else{window.addEventListener("load",function(){ if(window.Chart){draw();}else{setTimeout(function(){window.print();},400);} });}
+        </script>';
+    } else {
+        $html .= '<script>window.onload=function(){setTimeout(function(){window.print();},300);}</script>';
+    }
     $html .= '</body></html>';
 
     header('Content-Type: text/html; charset=UTF-8');
