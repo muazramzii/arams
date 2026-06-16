@@ -2,6 +2,7 @@
 $pageTitle  = 'My Faculty Lecturers';
 $activePage = 'lecturers';
 require_once __DIR__ . '/../../includes/header.php';
+require_once __DIR__ . '/../../includes/avatar.php';
 $db = getDB();
 
 $tdpp = $db->prepare("SELECT t.*, f.faculty_code, f.faculty_name FROM tbl_tdpp t JOIN tbl_faculty f ON f.faculty_id=t.faculty_id WHERE t.user_id=?");
@@ -40,10 +41,15 @@ $lecturers = $lecturers->fetchAll();
                 onclick="window.location='<?= $analyticsUrl ?>'"
                 title="View <?= htmlspecialchars($l['full_name']) ?>'s analytics">
                 <td style="font-weight:600">
-                    <a href="<?= $analyticsUrl ?>" style="color:var(--blue);text-decoration:none" onclick="event.stopPropagation()">
-                        <?= htmlspecialchars($l['full_name']) ?>
-                    </a>
-                    <div style="font-size:11px;color:var(--muted)"><?= htmlspecialchars($l['staff_no']) ?></div>
+                    <div style="display:flex;align-items:center;gap:10px">
+                        <?= lecAvatar($l['profile_photo'] ?? '', $l['full_name']) ?>
+                        <div>
+                            <a href="<?= $analyticsUrl ?>" style="color:var(--blue);text-decoration:none" onclick="event.stopPropagation()">
+                                <?= htmlspecialchars($l['full_name']) ?>
+                            </a>
+                            <div style="font-size:11px;color:var(--muted)"><?= htmlspecialchars($l['staff_no']) ?></div>
+                        </div>
+                    </div>
                 </td>
                 <td style="font-size:12px"><?= htmlspecialchars($l['position'] ?? '—') ?>
                     <?= $l['grade'] ? '('.htmlspecialchars($l['grade']).')' : '' ?></td>
