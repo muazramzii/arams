@@ -4,6 +4,8 @@
 // ============================================================
 $pageTitle  = 'Lecturer Detail';
 $activePage = 'lecturers';
+$editMode   = (($_GET['edit'] ?? '') === '1');   // edit page = ?edit=1
+$bodyClass  = $editMode ? 'edit-mode' : '';       // applied on <body> by header
 require_once __DIR__ . '/../../includes/header.php';
 
 $db    = getDB();
@@ -127,14 +129,7 @@ $pubTypeColors   = ['#0B3C5D','#1B998B','#3b82f6','#8b5cf6','#f59e0b','#ef4444',
 $grantCatColors  = ['#0B3C5D','#1B998B','#3b82f6','#f59e0b','#8b5cf6','#ef4444','#22c55e'];
 $grantRoleColors = ['#0B3C5D','#1B998B','#f59e0b'];
 
-// ── Allowed ENUM values (match DB schema) ─────────────────
-$PUB_TYPES   = ['Journal','Proceeding / Seminar','Book Chapter','Book','Others'];
-$GRANT_CATS  = ['Tier 1','RE-GG','Contract','GPPS','GPP','ICI','UTHM Internal (VoT)',
-                'Geran Tanpa Dana (X)','FRGS','PRGS','TRGS','LRGS','Geran Kontrak Kementerian',
-                'Lain-Lain Geran Kebangsaan','KKP','PPRN','Sepadan RESIP','Sepadan MTUN',
-                'International','NGO','Industries','Others'];
-$GRANT_LEVELS = ['Universiti','National','International','NGO','Industries'];
-$IP_TYPES    = ['Patent','Copyright','Trademark','Industrial Design','Trade Secret','Others'];
+// ── Allowed values for the profile-fields editor ─────────
 $RGC_OPTS    = ['','CoE','CoR','Focus Group'];
 
 // ── Photo ─────────────────────────────────────────────────
@@ -153,6 +148,13 @@ body.edit-mode .edit-only{display:inline-block}
 body.edit-mode .edit-row.edit-only{display:flex}
 body.edit-mode .edit-only-block{display:block}
 body.edit-mode .view-only{display:none}
+/* edit-mode redesign */
+body.edit-mode .editable-section{border-left:3px solid #ef9f27}
+.edit-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;background:#faeeda;border:1px solid #f0c77b;border-radius:12px;padding:12px 16px;margin-bottom:1rem}
+.edit-bar .eb-title{font-weight:700;font-size:15px;color:#7a4f0a;display:flex;align-items:center;gap:8px}
+.edit-bar .eb-sub{font-size:12px;color:#946312;margin-top:2px}
+.add-chip{cursor:pointer;border:1px solid var(--border);background:#fff;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:600;color:var(--text);display:inline-flex;align-items:center;gap:5px}
+.add-chip:hover{background:var(--grey);border-color:var(--teal);color:var(--teal-dark,#0f6e56)}
 .inline-select{padding:4px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:#fff;max-width:100%}
 .inline-input{padding:4px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;width:140px}
 .save-pill{cursor:pointer;background:var(--blue);color:#fff;border:none;border-radius:6px;padding:4px 10px;font-size:11px;font-weight:600}
@@ -161,9 +163,6 @@ body.edit-mode .view-only{display:none}
 .saved-tick{color:var(--green);font-weight:700;font-size:12px;margin-left:6px;display:none}
 .edit-row{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:6px}
 </style>
-
-<?php $editMode = (($_GET['edit'] ?? '') === '1'); ?>
-<?php if ($editMode): ?><script>document.body.classList.add('edit-mode');</script><?php endif; ?>
 
 <!-- Back button + Edit toggle -->
 <div style="margin-bottom:1rem;display:flex;gap:.75rem;flex-wrap:wrap">
@@ -174,16 +173,25 @@ body.edit-mode .view-only{display:none}
        class="btn btn-primary btn-sm">
         <i class="fas fa-file-alt"></i> Generate Performance Report
     </a>
-    <?php if ($editMode): ?>
-    <a href="/arams/pages/admin/lecturer_detail.php?id=<?= $lecId ?>" class="btn btn-sm" style="background:#64748b;color:#fff">
-        <i class="fas fa-check"></i> Done Editing
-    </a>
-    <?php else: ?>
+    <?php if (!$editMode): ?>
     <a href="/arams/pages/admin/lecturer_detail.php?id=<?= $lecId ?>&edit=1" class="btn btn-sm" style="background:var(--teal);color:#fff">
         <i class="fas fa-pen"></i> Edit Mode
     </a>
     <?php endif; ?>
 </div>
+
+<?php if ($editMode): ?>
+<!-- ── Edit Mode command bar ─────────────────────────── -->
+<div class="edit-bar">
+    <div>
+        <div class="eb-title"><i class="fas fa-pen"></i> Editing <?= htmlspecialchars($lec['full_name']) ?></div>
+        <div class="eb-sub">You're in edit mode — add, edit or remove records. Changes save as you make them.</div>
+    </div>
+    <a href="/arams/pages/admin/lecturer_detail.php?id=<?= $lecId ?>" class="btn btn-sm" style="background:#64748b;color:#fff">
+        <i class="fas fa-check"></i> Done Editing
+    </a>
+</div>
+<?php endif; ?>
 
 <!-- ── PROFILE HEADER ─────────────────────────────────── -->
 <div class="card" style="margin-bottom:1rem">
@@ -387,7 +395,7 @@ body.edit-mode .view-only{display:none}
             </span>
         </div>
         <?php if (empty($pubTypes)): ?>
-        <p style="color:var(--muted);font-size:13px;text-align:center;padding:1.5rem 0">No data.</p>
+        <p style="color:var(--muted);font-size:13px;text-align:center;padding:1.5rem 0">No data yet.</p>
         <?php else: ?>
         <div id="pubTypeDonut"></div>
         <?php endif; ?>
@@ -403,7 +411,7 @@ body.edit-mode .view-only{display:none}
             </span>
         </div>
         <?php if (empty($grantCats)): ?>
-        <p style="color:var(--muted);font-size:13px;text-align:center;padding:1.5rem 0">No data.</p>
+        <p style="color:var(--muted);font-size:13px;text-align:center;padding:1.5rem 0">No data yet.</p>
         <?php else: ?>
         <div id="grantCatDonut"></div>
         <?php endif; ?>
@@ -420,7 +428,7 @@ body.edit-mode .view-only{display:none}
             Publication Breakdown
         </div>
         <?php if (empty($pubTypes)): ?>
-        <p style="color:var(--muted);font-size:13px">No data.</p>
+        <p style="color:var(--muted);font-size:13px">No data yet.</p>
         <?php else: ?>
         <?php foreach ($pubTypes as $i => $pt):
             $col = $pubTypeColors[$i % count($pubTypeColors)];
@@ -449,7 +457,7 @@ body.edit-mode .view-only{display:none}
             Grant by Role (PI / Co-I / Member)
         </div>
         <?php if (empty($grantRoles)): ?>
-        <p style="color:var(--muted);font-size:13px">No data.</p>
+        <p style="color:var(--muted);font-size:13px">No data yet.</p>
         <?php else: ?>
         <div id="grantRoleDonut" style="margin-bottom:1rem"></div>
         <?php
@@ -479,14 +487,14 @@ body.edit-mode .view-only{display:none}
     </div>
 </div>
 
-<!-- ── Admin: Add Record on behalf of lecturer (edit mode only) ────── -->
-<div class="card edit-only-block" style="margin-bottom:1rem">
+<!-- ── Admin: Add income record (income has no list section) ────── -->
+<div class="card edit-only-block editable-section" style="margin-bottom:1rem">
     <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
         <div>
-            <div style="font-weight:600;font-size:14px"><i class="fas fa-plus-circle" style="color:var(--teal)"></i> Add a research record for this lecturer</div>
-            <div style="font-size:12px;color:var(--muted)">Records added here are marked validated and recorded in the audit trail.</div>
+            <div style="font-weight:600;font-size:14px"><i class="fas fa-dollar-sign" style="color:var(--green,#16a34a)"></i> Research income</div>
+            <div style="font-size:12px;color:var(--muted)">Income records don't have a list here yet. Add one — it's validated and recorded in the audit trail.</div>
         </div>
-        <button class="btn btn-teal" onclick="openAddRecordModal()"><i class="fas fa-plus"></i> Add Record</button>
+        <button class="add-chip" onclick="openAddRecordModal('income')"><i class="fas fa-plus"></i> Add income</button>
     </div>
 </div>
 
@@ -494,9 +502,10 @@ body.edit-mode .view-only{display:none}
 <div class="grid-2" style="margin-bottom:1rem">
 
     <!-- Publications List -->
-    <div class="card">
+    <div class="card editable-section">
         <div class="card-title" style="justify-content:space-between">
             <span><i class="fas fa-file-alt" style="color:var(--blue)"></i> Publications (<?= count($publications) ?>)</span>
+            <button class="add-chip edit-only" onclick="openAddRecordModal('publication')"><i class="fas fa-plus"></i> Add</button>
         </div>
         <?php if (empty($publications)): ?>
         <p style="color:var(--muted);font-size:13px">No approved publications.</p>
@@ -539,13 +548,13 @@ body.edit-mode .view-only{display:none}
     <div style="display:flex;flex-direction:column;gap:1rem">
 
         <!-- Grants -->
-        <div class="card">
-            <div class="card-title">
-                <i class="fas fa-trophy" style="color:#8b5cf6"></i>
-                Grants (<?= count($grants) ?>)
+        <div class="card editable-section">
+            <div class="card-title" style="justify-content:space-between">
+                <span><i class="fas fa-trophy" style="color:#8b5cf6"></i> Grants (<?= count($grants) ?>)</span>
+                <button class="add-chip edit-only" onclick="openAddRecordModal('grant')"><i class="fas fa-plus"></i> Add</button>
             </div>
             <?php if (empty($grants)): ?>
-            <p style="color:var(--muted);font-size:13px">No grants.</p>
+            <p style="color:var(--muted);font-size:13px">No grants yet.</p>
             <?php else: ?>
             <?php foreach ($grants as $g): ?>
             <div style="padding:8px 0;border-bottom:1px solid var(--border);font-size:13px">
@@ -573,12 +582,14 @@ body.edit-mode .view-only{display:none}
         </div>
 
         <!-- H-Index History -->
-        <?php if (!empty($hindexes)): ?>
-        <div class="card">
-            <div class="card-title">
-                <i class="fas fa-chart-line" style="color:var(--teal)"></i>
-                H-Index History
+        <div class="card editable-section">
+            <div class="card-title" style="justify-content:space-between">
+                <span><i class="fas fa-chart-line" style="color:var(--teal)"></i> H-Index History</span>
+                <button class="add-chip edit-only" onclick="openAddRecordModal('hindex')"><i class="fas fa-plus"></i> Add</button>
             </div>
+            <?php if (empty($hindexes)): ?>
+            <p style="color:var(--muted);font-size:13px">No h-index records yet.</p>
+            <?php else: ?>
             <table class="arams-table">
                 <thead><tr><th>Year</th><th>H-Index</th><th>Citations</th><th>Source</th></tr></thead>
                 <tbody>
@@ -595,8 +606,8 @@ body.edit-mode .view-only{display:none}
                 <?php endforeach; ?>
                 </tbody>
             </table>
+            <?php endif; ?>
         </div>
-        <?php endif; ?>
 
         <!-- Awards -->
         <?php if (!empty($awards)): ?>
@@ -629,10 +640,10 @@ body.edit-mode .view-only{display:none}
 </div>
 
 <!-- ── IP RECORDS ─────────────────────────────────────── -->
-<div class="card" style="margin-bottom:1rem">
-    <div class="card-title">
-        <i class="fas fa-lightbulb" style="color:#f59e0b"></i>
-        Intellectual Property (<?= count($ips) ?>)
+<div class="card editable-section" style="margin-bottom:1rem">
+    <div class="card-title" style="justify-content:space-between">
+        <span><i class="fas fa-lightbulb" style="color:#f59e0b"></i> Intellectual Property (<?= count($ips) ?>)</span>
+        <button class="add-chip edit-only" onclick="openAddRecordModal('ip')"><i class="fas fa-plus"></i> Add</button>
     </div>
     <?php if (empty($ips)): ?>
     <p style="color:var(--muted);font-size:13px">No approved IP records.</p>
@@ -787,33 +798,33 @@ function deleteRecord(dataId){
 
 // ── Admin: Add Research Record on behalf of this lecturer ────
 let _adminFormType = 'publication';
-function openAddRecordModal(){
+function openAddRecordModal(preType){
+    const initial = preType || 'publication';
     openModal(`
         <div class="modal-header">
             <h3 class="modal-title">Add Research Record</h3>
             <button class="modal-close" onclick="closeModal()">×</button>
         </div>
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px" id="adminTypeTabs">
-            <button class="btn btn-outline btn-sm active" onclick="switchAdminForm('publication',this)">Publication</button>
-            <button class="btn btn-outline btn-sm" onclick="switchAdminForm('grant',this)">Grant</button>
-            <button class="btn btn-outline btn-sm" onclick="switchAdminForm('hindex',this)">H-Index</button>
-            <button class="btn btn-outline btn-sm" onclick="switchAdminForm('ip',this)">IP</button>
-            <button class="btn btn-outline btn-sm" onclick="switchAdminForm('income',this)">Income</button>
+            <button class="btn btn-outline btn-sm" data-ftype="publication" onclick="switchAdminForm('publication',this)">Publication</button>
+            <button class="btn btn-outline btn-sm" data-ftype="grant" onclick="switchAdminForm('grant',this)">Grant</button>
+            <button class="btn btn-outline btn-sm" data-ftype="hindex" onclick="switchAdminForm('hindex',this)">H-Index</button>
+            <button class="btn btn-outline btn-sm" data-ftype="ip" onclick="switchAdminForm('ip',this)">IP</button>
+            <button class="btn btn-outline btn-sm" data-ftype="income" onclick="switchAdminForm('income',this)">Income</button>
         </div>
         <div id="adminFormArea"></div>
         <button class="btn btn-teal btn-full" style="margin-top:1rem" onclick="submitAdminRecord(this)">
             <i class="fas fa-save"></i> Add Record (validated)
         </button>`);
-    switchAdminForm('publication');
+    switchAdminForm(initial);
 }
 function switchAdminForm(type, btn){
     _adminFormType = type;
     const map = { publication:pubForm, grant:grantForm, hindex:hindexForm, ip:ipForm, income:incomeForm };
     document.getElementById('adminFormArea').innerHTML = (map[type] || pubForm)();
-    if (btn){
-        document.querySelectorAll('#adminTypeTabs .btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-    }
+    document.querySelectorAll('#adminTypeTabs .btn').forEach(b => b.classList.remove('active'));
+    const tab = btn || document.querySelector('#adminTypeTabs .btn[data-ftype="'+type+'"]');
+    if (tab) tab.classList.add('active');
 }
 function submitAdminRecord(btn){
     const form = document.getElementById('addForm');

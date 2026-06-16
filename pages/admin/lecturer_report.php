@@ -80,6 +80,123 @@ if ($selectedId) {
     );
     $st->execute([$selectedId]); $awards = $st->fetchAll();
 }
+
+// ── Print-friendly inline SVG chart helpers ───────────────────
+// Vertical bar chart from ['2021'=>3, '2022'=>5, ...] (insertion order = x order)
+function svgBar(array $data, string $color = '#2563eb', string $prefix = ''): string {
+    if (empty($data)) return '<p style="color:var(--muted);font-size:13px;padding:1rem 0">No data to chart.</p>';
+    $max = max($data); $max = $max > 0 ? $max : 1;
+    $n = count($data);
+    $bw = 44; $gap = 20; $chartH = 156; $padTop = 18; $padBot = 26; $padLeft = 30;
+    $w = max(280, $padLeft + $n * ($bw + $gap) + $gap);
+    $h = $chartH + $padTop + $padBot;
+    $baseY = $padTop + $chartH;
+    $svg = '<svg viewBox="0 0 '.$w.' '.$h.'" width="100%" style="max-width:'.$w.'px;height:auto" xmlns="http://www.w3.org/2000/svg" font-family="system-ui,sans-serif">';
+    // horizontal gridlines + y scale (4 steps)
+    for ($i = 0; $i <= 4; $i++) {
+        $gy = $padTop + $chartH - ($i / 4) * $chartH;
+        $gv = round(($i / 4) * $max);
+        $svg .= '<line x1="'.$padLeft.'" y1="'.$gy.'" x2="'.$w.'" y2="'.$gy.'" stroke="'.($i === 0 ? '#cbd5e1' : '#eef2f6').'"/>';
+        $svg .= '<text x="'.($padLeft-6).'" y="'.($gy+4).'" text-anchor="end" font-size="10" fill="#94a3b8">'.$gv.'</text>';
+    }
+    $x = $padLeft + $gap;
+    foreach ($data as $label => $val) {
+        $bh = (int)round(($val / $max) * $chartH);
+        $y = $baseY - $bh;
+        $svg .= '<rect x="'.$x.'" y="'.$y.'" width="'.$bw.'" height="'.max($bh,1).'" rx="4" fill="'.$color.'"/>';
+        $svg .= '<text x="'.($x+$bw/2).'" y="'.($y-5).'" text-anchor="middle" font-size="13" font-weight="700" fill="#0f172a">'.$prefix.htmlspecialchars((string)$val).'</text>';
+        $svg .= '<text x="'.($x+$bw/2).'" y="'.($baseY+18).'" text-anchor="middle" font-size="12" fill="#475569" font-weight="600">'.htmlspecialchars((string)$label).'</text>';
+        $x += $bw + $gap;
+    }
+    return $svg.'</svg>';
+}
+
+// Donut from [['label'=>,'value'=>,'color'=>], ...] with legend
+function svgDonut(array $segs): string {
+    $segs = array_values(array_filter($segs, fn($s) => ($s['value'] ?? 0) > 0));
+    if (empty($segs)) return '<p style="color:var(--muted);font-size:13px;padding:1rem 0">No data to chart.</p>';
+    $total = array_sum(array_column($segs, 'value'));
+    $r = 54; $cx = 70; $cy = 70; $circ = 2 * M_PI * $r;
+    $off = 0;
+    $ring = '';
+    foreach ($segs as $s) {
+        $frac = $s['value'] / $total;
+        $len = $frac * $circ;
+        $ring .= '<circle cx="'.$cx.'" cy="'.$cy.'" r="'.$r.'" fill="none" stroke="'.$s['color'].'" stroke-width="22" '
+              .  'stroke-dasharray="'.round($len,2).' '.round($circ-$len,2).'" stroke-dashoffset="'.round(-$off,2).'" transform="rotate(-90 '.$cx.' '.$cy.')"/>';
+        $off += $len;
+    }
+    $svg = '<div style="display:flex;align-items:center;gap:18px;flex-wrap:wrap">';
+    $svg .= '<svg viewBox="0 0 140 140" width="140" height="140" xmlns="http://www.w3.org/2000/svg">'.$ring
+          . '<text x="70" y="66" text-anchor="middle" font-size="22" font-weight="700" fill="#0f172a" font-family="system-ui">'.$total.'</text>'
+          . '<text x="70" y="84" text-anchor="middle" font-size="11" fill="#64748b" font-family="system-ui">total</text></svg>';
+    $svg .= '<div style="display:flex;flex-direction:column;gap:6px;font-size:13px">';
+    foreach ($segs as $s) {
+        $pct = round($s['value'] / $total * 100);
+        $svg .= '<div style="display:flex;align-items:center;gap:8px">'
+              . '<span style="width:11px;height:11px;border-radius:3px;background:'.$s['color'].';flex-shrink:0"></span>'
+              . '<span style="color:#334155">'.htmlspecialchars($s['label']).'</span>'
+              . '<strong style="margin-left:auto;padding-left:10px">'.$s['value'].'</strong>'
+              . '<span style="color:#94a3b8;font-size:11px">'.$pct.'%</span></div>';
+    }
+    return $svg.'</div></div>';
+}
+
+// ── Per-type aggregation (Publications) ───────────────────────
+$pubByYear = [];
+foreach (array_reverse($pubs) as $p) { $y = $p['pub_year'] ?: '—'; $pubByYear[$y] = ($pubByYear[$y] ?? 0) + 1; }
+$pubQuartile = [];
+foreach ($pubs as $p) { $q = $p['quartile'] ?: 'N/A'; $pubQuartile[$q] = ($pubQuartile[$q] ?? 0) + 1; }
+$qColors = ['Q1'=>'#16a34a','Q2'=>'#3b82f6','Q3'=>'#f59e0b','Q4'=>'#ef4444','N/A'=>'#94a3b8'];
+$pubDonut = [];
+foreach ($pubQuartile as $q => $c) $pubDonut[] = ['label'=>$q,'value'=>$c,'color'=>$qColors[$q] ?? '#8b5cf6'];
+
+// ── Grants: by year + Active/Non-Active ───────────────────────
+$today = date('Y-m-d');
+$grantByYear = [];
+foreach (array_reverse($grants) as $g) {
+    $yr = !empty($g['start_date']) ? date('Y', strtotime($g['start_date'])) : '—';
+    $grantByYear[$yr] = ($grantByYear[$yr] ?? 0) + 1;
+}
+$gActive = $gNon = 0;
+foreach ($grants as $g) {
+    $end = $g['end_date'] ?? null;
+    if (empty($end) || $end >= $today) $gActive++; else $gNon++;
+}
+$grantDonut = [];
+if ($gActive) $grantDonut[] = ['label'=>'Active','value'=>$gActive,'color'=>'#16a34a'];
+if ($gNon)    $grantDonut[] = ['label'=>'Non-Active','value'=>$gNon,'color'=>'#ef4444'];
+
+// ── H-Index: value by year + source breakdown ─────────────────
+$hindexByYear = [];
+foreach (array_reverse($hindexes) as $h) $hindexByYear[$h['record_year']] = (int)$h['hindex_value'];
+$hSource = [];
+foreach ($hindexes as $h) { $src = $h['source'] ?: 'Other'; $hSource[$src] = ($hSource[$src] ?? 0) + 1; }
+$srcColors = ['Scopus'=>'#e8590c','Web of Science'=>'#3b82f6','WoS'=>'#3b82f6','Google Scholar'=>'#16a34a','Other'=>'#94a3b8'];
+$hindexDonut = [];
+foreach ($hSource as $src => $c) $hindexDonut[] = ['label'=>$src,'value'=>$c,'color'=>$srcColors[$src] ?? '#8b5cf6'];
+
+// ── Income: RM'000 by year + category breakdown ───────────────
+$incByYearK = [];
+foreach (array_reverse($incomes) as $inc) {
+    $yr = $inc['year_received'] ?: '—';
+    $incByYearK[$yr] = ($incByYearK[$yr] ?? 0) + (float)($inc['amount'] ?? 0);
+}
+foreach ($incByYearK as $yr => $amt) $incByYearK[$yr] = (int)round($amt / 1000);
+$incCat = [];
+foreach ($incomes as $inc) { $c = $inc['income_category'] ?? $inc['source'] ?? 'Other'; $incCat[$c] = ($incCat[$c] ?? 0) + (float)($inc['amount'] ?? 0); }
+$pool = ['#2563eb','#16a34a','#f59e0b','#8b5cf6','#ef4444','#0ea5e9','#ec4899'];
+$incomeDonut = []; $ci = 0;
+foreach ($incCat as $c => $amt) $incomeDonut[] = ['label'=>$c,'value'=>(int)round($amt),'color'=>$pool[$ci++ % count($pool)]];
+
+// ── Awards: by year + level breakdown ─────────────────────────
+$awardByYear = [];
+foreach (array_reverse($awards) as $aw) { $yr = $aw['award_year'] ?: '—'; $awardByYear[$yr] = ($awardByYear[$yr] ?? 0) + 1; }
+$awLevel = [];
+foreach ($awards as $aw) { $lv = $aw['level'] ?: 'Other'; $awLevel[$lv] = ($awLevel[$lv] ?? 0) + 1; }
+$lvColors = ['International'=>'#2563eb','National'=>'#16a34a','University'=>'#f59e0b','State'=>'#8b5cf6','Other'=>'#94a3b8'];
+$awardDonut = [];
+foreach ($awLevel as $lv => $c) $awardDonut[] = ['label'=>$lv,'value'=>$c,'color'=>$lvColors[$lv] ?? '#94a3b8'];
 ?>
 
 <!-- Buttons row -->
@@ -151,6 +268,25 @@ if ($selectedId) {
 }
 .fac-badge:hover { border-color:var(--teal); color:var(--teal); }
 .fac-badge.active { background:var(--teal); color:#fff; border-color:var(--teal); }
+.rtype-tabs { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:1rem; }
+.rtab { cursor:pointer; border:1px solid var(--border); background:#fff; border-radius:8px; padding:8px 14px; font-size:13px; font-weight:600; color:var(--text); display:inline-flex; align-items:center; gap:6px; }
+.rtab:hover { border-color:var(--teal); color:var(--teal); }
+.rtab.active { background:var(--teal); color:#fff; border-color:var(--teal); }
+.report-letterhead { display:flex; align-items:center; gap:18px; padding:4px 4px 14px; border-bottom:3px solid #0B3C5D; margin-bottom:1.25rem; }
+.report-letterhead .lh-logo { height:72px; width:auto; flex-shrink:0; }
+.report-letterhead .lh-titles { flex:1; text-align:center; }
+.report-letterhead .lh-uni { font-size:16px; font-weight:800; letter-spacing:.4px; color:#0B3C5D; line-height:1.2; }
+.report-letterhead .lh-sub { font-size:11px; color:#64748b; margin:3px 0 7px; }
+.report-letterhead .lh-report { font-size:13px; font-weight:700; letter-spacing:1.2px; color:#0d9488; }
+.report-letterhead .lh-meta { text-align:right; font-size:10.5px; color:#64748b; flex-shrink:0; line-height:1.7; min-width:120px; }
+.report-letterhead .lh-meta div:last-child { color:#b91c1c; font-weight:700; letter-spacing:.5px; }
+.rkpi-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:1.25rem; }
+.rkpi { background:#fff; border:1px solid #e2e8f0; border-top:4px solid var(--accent); border-radius:10px; padding:14px 16px; }
+.rkpi-top { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:6px; }
+.rkpi-top i { font-size:18px; color:var(--accent); }
+.rkpi-num { font-size:28px; font-weight:800; color:#0f172a; line-height:1; }
+.rkpi-label { font-size:11.5px; font-weight:700; color:#334155; text-transform:uppercase; letter-spacing:.4px; }
+.rkpi-sub { font-size:11px; color:#64748b; margin-top:3px; }
 </style>
 
 <?php if (!$selectedId): ?>
@@ -177,6 +313,21 @@ $initials = strtoupper(substr($lec['full_name'], 0, 2));
      PRINTABLE REPORT
 ════════════════════════════════════════ -->
 <div id="reportContent">
+
+    <!-- ══ Official letterhead (prints) ══ -->
+    <div class="report-letterhead">
+        <img src="/arams/assets/images/uthm_logo.png" alt="UTHM" class="lh-logo">
+        <div class="lh-titles">
+            <div class="lh-uni">UNIVERSITI TUN HUSSEIN ONN MALAYSIA</div>
+            <div class="lh-sub">Academic Research Analytics and Monitoring System (ARAMS)</div>
+            <div class="lh-report">ACADEMIC RESEARCH PERFORMANCE REPORT</div>
+        </div>
+        <div class="lh-meta">
+            <div>Ref: ARAMS/<?= htmlspecialchars($lec['staff_no'] ?: '—') ?>/<?= date('Y') ?></div>
+            <div><?= date('d M Y') ?></div>
+            <div>CONFIDENTIAL</div>
+        </div>
+    </div>
 
     <!-- Profile Header -->
     <div class="card" style="margin-bottom:1rem">
@@ -254,31 +405,47 @@ $initials = strtoupper(substr($lec['full_name'], 0, 2));
     </div>
 
     <!-- KPI Cards -->
-    <div class="kpi-grid" style="margin-bottom:1rem">
-        <div class="kpi-card bg-blue">
-            <i class="fas fa-file-alt"></i>
-            <div class="kpi-val"><?= (int)($kpi['total_publications'] ?? 0) ?></div>
-            <div class="kpi-label">Total Publications</div>
-            <div class="kpi-chg">Q1: <?= (int)($kpi['q1_pubs'] ?? 0) ?> &nbsp; Q2: <?= (int)($kpi['q2_pubs'] ?? 0) ?></div>
+    <div class="rkpi-grid">
+        <div class="rkpi" style="--accent:#2563eb">
+            <div class="rkpi-top"><i class="fas fa-file-alt"></i><span class="rkpi-num"><?= (int)($kpi['total_publications'] ?? 0) ?></span></div>
+            <div class="rkpi-label">Total Publications</div>
+            <div class="rkpi-sub">Q1: <?= (int)($kpi['q1_pubs'] ?? 0) ?> &middot; Q2: <?= (int)($kpi['q2_pubs'] ?? 0) ?></div>
         </div>
-        <div class="kpi-card bg-purple">
-            <i class="fas fa-trophy"></i>
-            <div class="kpi-val"><?= (int)($kpi['total_grants'] ?? 0) ?></div>
-            <div class="kpi-label">Total Grants</div>
-            <div class="kpi-chg"><?= (int)($kpi['grants_as_pi'] ?? 0) ?> as PI</div>
+        <div class="rkpi" style="--accent:#8b5cf6">
+            <div class="rkpi-top"><i class="fas fa-trophy"></i><span class="rkpi-num"><?= (int)($kpi['total_grants'] ?? 0) ?></span></div>
+            <div class="rkpi-label">Total Grants</div>
+            <div class="rkpi-sub"><?= (int)($kpi['grants_as_pi'] ?? 0) ?> as Principal Investigator</div>
         </div>
-        <div class="kpi-card bg-teal">
-            <i class="fas fa-chart-line"></i>
-            <div class="kpi-val"><?= (int)($kpi['current_hindex'] ?? 0) ?></div>
-            <div class="kpi-label">H-Index (Scopus)</div>
-            <div class="kpi-chg">Citations: <?= number_format((int)($kpi['total_citations'] ?? 0)) ?></div>
+        <div class="rkpi" style="--accent:#0d9488">
+            <div class="rkpi-top"><i class="fas fa-chart-line"></i><span class="rkpi-num"><?= (int)($kpi['current_hindex'] ?? 0) ?></span></div>
+            <div class="rkpi-label">H-Index (Scopus)</div>
+            <div class="rkpi-sub"><?= number_format((int)($kpi['total_citations'] ?? 0)) ?> citations</div>
         </div>
-        <div class="kpi-card bg-green">
-            <i class="fas fa-dollar-sign"></i>
-            <div class="kpi-val">RM <?= number_format((float)($kpi['total_income_rm'] ?? 0) / 1000, 0) ?>K</div>
-            <div class="kpi-label">Research Income</div>
+        <div class="rkpi" style="--accent:#16a34a">
+            <div class="rkpi-top"><i class="fas fa-dollar-sign"></i><span class="rkpi-num">RM <?= number_format((float)($kpi['total_income_rm'] ?? 0) / 1000, 0) ?>K</span></div>
+            <div class="rkpi-label">Research Income</div>
+            <div class="rkpi-sub">Total approved funding</div>
         </div>
     </div>
+
+    <!-- ══ TYPE TABS (screen only) — pick a type, then Print ══ -->
+    <div class="rtype-tabs no-print">
+        <button class="rtab active" data-rt="publications" onclick="showRType('publications',this)"><i class="fas fa-file-alt"></i> Publications</button>
+        <button class="rtab" data-rt="grants" onclick="showRType('grants',this)"><i class="fas fa-trophy"></i> Grants</button>
+        <button class="rtab" data-rt="hindex" onclick="showRType('hindex',this)"><i class="fas fa-chart-line"></i> H-Index</button>
+        <button class="rtab" data-rt="income" onclick="showRType('income',this)"><i class="fas fa-dollar-sign"></i> Income</button>
+        <button class="rtab" data-rt="awards" onclick="showRType('awards',this)"><i class="fas fa-medal"></i> Awards</button>
+    </div>
+
+    <!-- ════════ PUBLICATIONS SECTION ════════ -->
+    <div class="rtype-section" data-rt="publications">
+        <div class="card" style="margin-bottom:1rem">
+            <div class="card-title"><i class="fas fa-chart-bar" style="color:var(--blue)"></i> Publications by Year &amp; Quartile</div>
+            <div style="display:flex;gap:2.5rem;flex-wrap:wrap;align-items:center;padding-top:8px">
+                <div style="flex:1;min-width:260px"><?= svgBar($pubByYear, '#2563eb') ?></div>
+                <div><?= svgDonut($pubDonut) ?></div>
+            </div>
+        </div>
 
     <!-- Publications -->
     <?php if (!empty($pubs)): ?>
@@ -321,6 +488,19 @@ $initials = strtoupper(substr($lec['full_name'], 0, 2));
     </div>
     <?php endif; ?>
 
+    </div><!-- /publications -->
+
+    <!-- ════════ GRANTS SECTION ════════ -->
+    <div class="rtype-section" data-rt="grants" style="display:none">
+        <div class="card" style="margin-bottom:1rem">
+            <div class="card-title"><i class="fas fa-chart-bar" style="color:#8b5cf6"></i> Grants by Year &amp; Status (Active vs Non-Active)</div>
+            <div style="display:flex;gap:2.5rem;flex-wrap:wrap;align-items:center;padding-top:8px">
+                <div style="flex:1;min-width:260px"><?= svgBar($grantByYear, '#8b5cf6') ?></div>
+                <div><?= svgDonut($grantDonut) ?></div>
+            </div>
+        </div>
+
+
     <!-- Grants -->
     <?php if (!empty($grants)): ?>
     <div class="card" style="margin-bottom:1rem">
@@ -362,15 +542,25 @@ $initials = strtoupper(substr($lec['full_name'], 0, 2));
     </div>
     <?php endif; ?>
 
-    <!-- H-Index + Income -->
-    <div class="grid-2" style="margin-bottom:1rem">
+    </div><!-- /grants -->
+
+    <!-- ════════ H-INDEX SECTION ════════ -->
+    <div class="rtype-section" data-rt="hindex" style="display:none">
+        <div class="card" style="margin-bottom:1rem">
+            <div class="card-title"><i class="fas fa-chart-bar" style="color:var(--teal)"></i> H-Index Value by Year</div>
+            <div style="display:flex;gap:2.5rem;flex-wrap:wrap;align-items:center;padding-top:8px">
+                <div style="flex:1;min-width:260px"><?= svgBar($hindexByYear, '#0d9488') ?></div>
+                <div><?= svgDonut($hindexDonut) ?></div>
+            </div>
+        </div>
+    <div style="margin-bottom:1rem">
         <div class="card">
             <div class="card-title">
                 <i class="fas fa-chart-line" style="color:var(--teal)"></i>
                 H-Index History
             </div>
             <?php if (empty($hindexes)): ?>
-            <p style="color:var(--muted);font-size:13px">No records.</p>
+            <p style="color:var(--muted);font-size:13px">No records yet.</p>
             <?php else: ?>
             <table class="arams-table">
                 <thead><tr><th>Year</th><th>H-Index</th><th>Citations</th><th>Source</th></tr></thead>
@@ -388,13 +578,25 @@ $initials = strtoupper(substr($lec['full_name'], 0, 2));
             <?php endif; ?>
         </div>
 
+    </div><!-- /hindex margin -->
+    </div><!-- /hindex section -->
+
+    <!-- ════════ INCOME SECTION ════════ -->
+    <div class="rtype-section" data-rt="income" style="display:none">
+        <div class="card" style="margin-bottom:1rem">
+            <div class="card-title"><i class="fas fa-chart-bar" style="color:var(--green)"></i> Research Income (RM'000) by Year</div>
+            <div style="display:flex;gap:2.5rem;flex-wrap:wrap;align-items:center;padding-top:8px">
+                <div style="flex:1;min-width:260px"><?= svgBar($incByYearK, '#16a34a') ?></div>
+                <div><?= svgDonut($incomeDonut) ?></div>
+            </div>
+        </div>
         <div class="card">
             <div class="card-title">
                 <i class="fas fa-dollar-sign" style="color:var(--green)"></i>
                 Research Income
             </div>
             <?php if (empty($incomes)): ?>
-            <p style="color:var(--muted);font-size:13px">No records.</p>
+            <p style="color:var(--muted);font-size:13px">No records yet.</p>
             <?php else: ?>
             <table class="arams-table">
                 <thead><tr><th>Year</th><th>Category</th><th>Amount (RM)</th></tr></thead>
@@ -413,6 +615,17 @@ $initials = strtoupper(substr($lec['full_name'], 0, 2));
             <?php endif; ?>
         </div>
     </div>
+
+    <!-- ════════ AWARDS SECTION ════════ -->
+    <div class="rtype-section" data-rt="awards" style="display:none">
+        <div class="card" style="margin-bottom:1rem">
+            <div class="card-title"><i class="fas fa-chart-bar" style="color:#f59e0b"></i> Awards by Year &amp; Level</div>
+            <div style="display:flex;gap:2.5rem;flex-wrap:wrap;align-items:center;padding-top:8px">
+                <div style="flex:1;min-width:260px"><?= svgBar($awardByYear, '#f59e0b') ?></div>
+                <div><?= svgDonut($awardDonut) ?></div>
+            </div>
+        </div>
+
 
     <!-- Awards -->
     <?php if (!empty($awards)): ?>
@@ -441,6 +654,10 @@ $initials = strtoupper(substr($lec['full_name'], 0, 2));
         </table>
     </div>
     <?php endif; ?>
+    <?php if (empty($awards)): ?>
+    <div class="card" style="margin-bottom:1rem"><p style="color:var(--muted);font-size:13px">No awards recorded.</p></div>
+    <?php endif; ?>
+    </div><!-- /awards section -->
 
     <!-- Footer -->
     <div style="text-align:center;font-size:11px;color:var(--muted);
@@ -456,7 +673,9 @@ $initials = strtoupper(substr($lec['full_name'], 0, 2));
 <!-- ── PRINT STYLES ───────────────────────────────────────── -->
 <style>
 @media print {
+    * { -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; }
     .no-print, .sidebar, .topbar, .sidebar-toggle, .btn { display:none !important; }
+    #reportContent, .report-letterhead, .rkpi-grid { width:100% !important; max-width:100% !important; box-sizing:border-box; }
     .main-wrap  { margin:0 !important; }
     .page-content { padding:0 !important; }
     body { font-size:11px; color:#000; }
@@ -469,6 +688,17 @@ $initials = strtoupper(substr($lec['full_name'], 0, 2));
     .arams-table thead th { background:#0B3C5D !important; color:white !important; }
     a  { color:inherit; text-decoration:none; }
     .badge { border:1px solid #ccc; padding:1px 5px; border-radius:10px; font-size:9px; }
+    .report-letterhead { border-bottom:3px solid #0B3C5D !important;
+         -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+    .report-letterhead .lh-logo { height:58px; }
+    .report-letterhead { gap:12px; }
+    .report-letterhead .lh-uni { font-size:14px; }
+    .report-letterhead .lh-meta { min-width:auto; font-size:9px; }
+    .rkpi-grid { gap:8px; break-inside:avoid; }
+    .rkpi { border:1px solid #cbd5e1 !important; padding:10px 12px; }
+    .rkpi-num { font-size:22px; }
+    .rtype-section > .card:first-child { break-inside:avoid; }
+    svg { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
 }
 </style>
 
@@ -504,6 +734,15 @@ function selectFaculty(btn, facultyId) {
     sel.value = Array.from(sel.options).some(function(o) {
         return o.value === cur;
     }) ? cur : '';
+}
+
+// Switch which type section is shown (and printed)
+function showRType(type, btn){
+    document.querySelectorAll('.rtype-section').forEach(function(s){
+        s.style.display = (s.getAttribute('data-rt') === type) ? '' : 'none';
+    });
+    document.querySelectorAll('.rtab').forEach(function(b){ b.classList.remove('active'); });
+    if (btn) btn.classList.add('active');
 }
 </script>
 

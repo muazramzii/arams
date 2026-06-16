@@ -562,7 +562,7 @@ function renderFacultyList(res) {
 
     if (!res.faculties.length) {
         head.innerHTML = '';
-        body.innerHTML = '<tr><td style="padding:1.5rem;text-align:center;color:var(--muted)">No records found.</td></tr>';
+        body.innerHTML = '<tr><td style="padding:1.5rem;text-align:center;color:var(--muted)">No records found for this selection.</td></tr>';
         return;
     }
 
