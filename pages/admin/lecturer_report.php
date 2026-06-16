@@ -672,12 +672,17 @@ $initials = strtoupper(substr($lec['full_name'], 0, 2));
 
 <!-- ── PRINT STYLES ───────────────────────────────────────── -->
 <style>
+@page { size: A4 portrait; margin: 12mm; }
 @media print {
     * { -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; }
     .no-print, .sidebar, .topbar, .sidebar-toggle, .btn { display:none !important; }
-    #reportContent, .report-letterhead, .rkpi-grid { width:100% !important; max-width:100% !important; box-sizing:border-box; }
-    .main-wrap  { margin:0 !important; }
-    .page-content { padding:0 !important; }
+    html, body { width:auto !important; margin:0 !important; padding:0 !important; overflow:visible !important; }
+    .main-wrap, .page-content, #reportContent, .report-letterhead, .rkpi-grid {
+        width:100% !important; max-width:100% !important; margin:0 !important; padding:0 !important;
+        box-sizing:border-box !important; overflow:visible !important; }
+    /* undo mobile table rule so wide tables don't overflow the page */
+    .arams-table { display:table !important; overflow:visible !important; width:100% !important; }
+    [style*="overflow-x"] { overflow:visible !important; }
     body { font-size:11px; color:#000; }
     .card { box-shadow:none !important; border:1px solid #ddd !important; break-inside:avoid; }
     .kpi-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:.5rem; }

@@ -393,12 +393,14 @@ if ($format === 'CSV') {
         *{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}
         body{font-family:Arial,Helvetica,sans-serif;font-size:11px;color:#1e293b;margin:0;background:#fff}
         .wrap{padding:26px 30px}
-        .cover{background:linear-gradient(135deg,#0B3C5D,#1E88A8);color:#fff;border-radius:12px;padding:22px 26px;margin-bottom:18px}
-        .cover .sys{font-size:11px;letter-spacing:1px;text-transform:uppercase;opacity:.85}
-        .cover h1{font-size:22px;margin:6px 0 4px;color:#fff}
-        .cover .meta{font-size:11px;opacity:.92}
-        .cover-row{display:flex;align-items:center;gap:18px}
-        .cover-logo{height:60px;width:auto;background:#fff;border-radius:8px;padding:5px 8px}
+        .cover{display:flex;align-items:center;gap:18px;padding:4px 4px 14px;border-bottom:3px solid #0B3C5D;margin-bottom:18px}
+        .cover-logo{height:64px;width:auto;flex-shrink:0}
+        .cover-titles{flex:1;text-align:center}
+        .cover-uni{font-size:16px;font-weight:800;letter-spacing:.4px;color:#0B3C5D;line-height:1.2}
+        .cover-sub{font-size:10px;color:#64748b;margin:3px 0 6px}
+        .cover-rep{font-size:13px;font-weight:700;letter-spacing:1px;color:#0d9488}
+        .cover-meta{text-align:right;font-size:10px;color:#64748b;flex-shrink:0;line-height:1.7;min-width:120px}
+        .cover-meta .conf{color:#b91c1c;font-weight:700;letter-spacing:.5px}
         .kpis{display:flex;gap:12px;margin-bottom:18px;flex-wrap:wrap}
         .kpi{flex:1;min-width:130px;border:1px solid #e2e8f0;border-radius:10px;padding:14px 16px;background:#f8fafc}
         .kpi .v{font-size:24px;font-weight:700;color:#0B3C5D;line-height:1.1}
@@ -414,15 +416,20 @@ if ($format === 'CSV') {
         .footer{margin-top:22px;font-size:10px;color:#94a3b8;text-align:center}
         .toolbar{text-align:right;margin-bottom:10px}
         .btnp{background:#0B3C5D;color:#fff;border:none;border-radius:6px;padding:8px 16px;font-size:12px;cursor:pointer}
-        @media print{.toolbar{display:none}.wrap{padding:0}.cover{border-radius:0}.charts{page-break-inside:avoid}.chartbox{min-width:0;page-break-inside:avoid}.kpi{break-inside:avoid;page-break-inside:avoid}.chartbox canvas{max-width:100%!important;height:auto!important}}
+        @page{size:A4 portrait;margin:12mm}
+        @media print{.toolbar{display:none}.wrap{padding:0}.cover{border-bottom:3px solid #0B3C5D!important}.charts{page-break-inside:avoid}.chartbox{min-width:0;page-break-inside:avoid}.kpi{break-inside:avoid;page-break-inside:avoid}.chartbox canvas{max-width:100%!important;height:auto!important}}
     </style></head><body><div class="wrap">';
 
     $html .= '<div class="toolbar"><button class="btnp" onclick="window.print()">Print / Save as PDF</button></div>';
-    $html .= '<div class="cover"><div class="cover-row">';
+    $html .= '<div class="cover">';
     $html .= '<img src="/arams/assets/images/uthm_logo.png" class="cover-logo" alt="UTHM">';
-    $html .= '<div><div class="sys">UTHM ARAMS</div><h1>' . htmlspecialchars($title) . '</h1>';
-    $html .= '<div class="meta">Year: ' . $yearLabel . ' &nbsp;|&nbsp; Generated: ' . date('d M Y, H:i') . ' &nbsp;|&nbsp; ' . count($rows) . ' records</div></div>';
-    $html .= '</div></div>';
+    $html .= '<div class="cover-titles">';
+    $html .= '<div class="cover-uni">UNIVERSITI TUN HUSSEIN ONN MALAYSIA</div>';
+    $html .= '<div class="cover-sub">Academic Research Analytics and Monitoring System (ARAMS)</div>';
+    $html .= '<div class="cover-rep">' . htmlspecialchars(strtoupper($title)) . '</div>';
+    $html .= '</div>';
+    $html .= '<div class="cover-meta"><div>Year: ' . $yearLabel . '</div><div>' . date('d M Y') . '</div><div>' . count($rows) . ' records</div><div class="conf">CONFIDENTIAL</div></div>';
+    $html .= '</div>';
 
     $html .= '<div class="kpis">';
     foreach ($kpis as $k) {

@@ -51,7 +51,7 @@ $totalAssigned = count($lecturers) - count($unassigned);
 // Small helper to render a lecturer row
 function lecRow(array $l): string {
     $cat = $l['research_group_category'] ?: '—';
-    $catColor = $cat === 'FG' ? 'badge-teal' : ($cat === 'External' ? 'badge-blue' : 'badge-grey');
+    $catColor = $cat === 'FG' ? 'badge-teal' : ($cat === 'External' ? 'badge-blue' : ($cat === 'CoR' ? 'badge-purple' : 'badge-grey'));
     return '<tr>'
         . '<td style="font-weight:600">' . htmlspecialchars($l['full_name']) . '</td>'
         . '<td>' . htmlspecialchars($l['staff_no'] ?: '—') . '</td>'
@@ -72,6 +72,14 @@ function lecTable(array $lecs): string {
     foreach ($lecs as $l) $h .= lecRow($l);
     return $h . '</tbody></table></div>';
 }
+
+// ── Calculation_FG: staff category breakdown ──────────────────
+$catCount = ['FG' => 0, 'CoR' => 0, 'External' => 0, 'Not set' => 0];
+foreach ($lecturers as $l) {
+    $c = $l['research_group_category'] ?: 'Not set';
+    if (!isset($catCount[$c])) $catCount[$c] = 0;
+    $catCount[$c]++;
+}
 ?>
 
 <style>
@@ -85,11 +93,58 @@ function lecTable(array $lecs): string {
 .rg-acc[open] .chev{transform:rotate(90deg)}
 .rg-meta{display:flex;align-items:center;gap:10px}
 .rg-count{background:var(--grey-mid);border-radius:20px;padding:2px 10px;font-size:12px;font-weight:700;color:var(--text)}
+.rgsum-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
+.rgsum{background:#fff;border:1px solid var(--border);border-left:4px solid var(--c);border-radius:8px;padding:10px 14px}
+.rgsum-n{font-size:24px;font-weight:800;color:var(--c);line-height:1}
+.rgsum-l{font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.3px;margin-top:4px}
+@media(max-width:768px){.rgsum-grid{grid-template-columns:1fr 1fr}}
 </style>
 
 <div class="page-header">
     <h1>Research Groups</h1>
     <p>Lecturers grouped by research group — <?= $totalAssigned ?> assigned, <?= count($unassigned) ?> unassigned</p>
+</div>
+
+<!-- ══ Calculation_FG: staff category summary ══ -->
+<div class="card" style="margin-bottom:1rem">
+    <div class="card-title"><i class="fas fa-calculator" style="color:var(--teal)"></i> Staff Category Summary <span style="font-size:12px;color:var(--muted);font-weight:400">(Calculation FG)</span></div>
+    <div class="rgsum-grid">
+        <div class="rgsum" style="--c:#0d9488"><div class="rgsum-n"><?= $catCount['FG'] ?></div><div class="rgsum-l">FG (Focus Group)</div></div>
+        <div class="rgsum" style="--c:#8b5cf6"><div class="rgsum-n"><?= $catCount['CoR'] ?></div><div class="rgsum-l">CoR (Centre of Research)</div></div>
+        <div class="rgsum" style="--c:#2563eb"><div class="rgsum-n"><?= $catCount['External'] ?></div><div class="rgsum-l">External</div></div>
+        <div class="rgsum" style="--c:#94a3b8"><div class="rgsum-n"><?= $catCount['Not set'] ?></div><div class="rgsum-l">Not set</div></div>
+        <div class="rgsum" style="--c:#16a34a"><div class="rgsum-n"><?= count($lecturers) ?></div><div class="rgsum-l">Total Staff</div></div>
+    </div>
+
+    <div class="table-wrap" style="margin-top:1rem">
+        <table class="arams-table">
+            <thead><tr><th>Research Group</th><th>Code</th><th>Faculty</th><th style="text-align:center">Members</th></tr></thead>
+            <tbody>
+            <?php foreach ($groups as $g): $cnt = count($byMaster[$g['group_id']] ?? []); ?>
+            <tr>
+                <td style="font-weight:600"><?= htmlspecialchars($g['group_name']) ?></td>
+                <td><?= htmlspecialchars($g['group_code']) ?></td>
+                <td><?= htmlspecialchars($g['faculty_code']) ?></td>
+                <td style="text-align:center;font-weight:700"><?= $cnt ?></td>
+            </tr>
+            <?php endforeach; ?>
+            <?php foreach ($byCentre as $centre => $members): ?>
+            <tr>
+                <td style="font-weight:600"><?= htmlspecialchars($centre) ?></td>
+                <td colspan="2"><span class="badge badge-blue" style="font-size:10px">External / Others</span></td>
+                <td style="text-align:center;font-weight:700"><?= count($members) ?></td>
+            </tr>
+            <?php endforeach; ?>
+            <?php if (!empty($unassigned)): ?>
+            <tr>
+                <td style="font-weight:600;color:#b91c1c">Unassigned</td>
+                <td colspan="2">—</td>
+                <td style="text-align:center;font-weight:700"><?= count($unassigned) ?></td>
+            </tr>
+            <?php endif; ?>
+            </tbody>
+        </table>
+    </div>
 </div>
 
 <!-- Master research groups -->
