@@ -14,6 +14,7 @@ if (isset($_SESSION['user_id'])) {
     exit;
 }
 $error = htmlspecialchars($_GET['error'] ?? '');
+require_once __DIR__ . '/includes/csrf.php';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -41,8 +42,18 @@ $error = htmlspecialchars($_GET['error'] ?? '');
 
             <?php if ($error === 'invalid'): ?>
             <div class="alert alert-danger"><i class="fas fa-exclamation-circle"></i> Invalid email or password. Please try again.</div>
+            <?php elseif ($error === 'inactive'): ?>
+            <div class="alert alert-warning"><i class="fas fa-user-slash"></i> This account is inactive. Please contact the administrator.</div>
+            <?php elseif ($error === 'locked'): ?>
+            <div class="alert alert-danger"><i class="fas fa-ban"></i> Too many failed attempts. Please try again in about 15 minutes.</div>
+            <?php elseif ($error === 'csrf'): ?>
+            <div class="alert alert-warning"><i class="fas fa-shield-halved"></i> Security check failed. Please try again.</div>
             <?php elseif ($error === 'unauthorized'): ?>
             <div class="alert alert-warning"><i class="fas fa-lock"></i> You are not authorised to access that page.</div>
+            <?php endif; ?>
+
+            <?php if (($_GET['timeout'] ?? '') === '1'): ?>
+            <div class="alert alert-warning"><i class="fas fa-clock"></i> Your session expired due to inactivity. Please log in again.</div>
             <?php endif; ?>
 
             <?php if (($_GET['reset'] ?? '') === 'success'): ?>
@@ -50,6 +61,7 @@ $error = htmlspecialchars($_GET['error'] ?? '');
             <?php endif; ?>
 
             <form method="POST" action="/arams/api/login.php">
+                <?= csrf_field() ?>
                 <div class="form-group">
                     <label class="form-label">Email Address</label>
                     <input type="email" name="email" class="form-control"

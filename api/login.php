@@ -4,9 +4,13 @@
 // ============================================================
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../includes/csrf.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     header('Location: /arams/index.php'); exit;
+}
+if (!csrf_verify()) {
+    header('Location: /arams/index.php?error=csrf'); exit;
 }
 
 $email    = trim($_POST['email']    ?? '');
@@ -18,6 +22,15 @@ if (!$email || !$password) {
 }
 
 $db  = getDB();
+$ip  = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
+
+// Rate limit: block after 5 failed attempts from this IP within 15 minutes
+$rl = $db->prepare("SELECT COUNT(*) FROM tbl_login_attempt WHERE ip_address = ? AND attempted_at > (NOW() - INTERVAL 15 MINUTE)");
+$rl->execute([$ip]);
+if ((int)$rl->fetchColumn() >= 5) {
+    header('Location: /arams/index.php?error=locked'); exit;
+}
+
 $sql = "SELECT u.user_id, u.email, u.password, u.role, u.is_active,
                l.lecturer_id,
                l.full_name      AS lec_name,
@@ -35,14 +48,20 @@ $st->execute([$email]);
 $user = $st->fetch();
 
 if (!$user || !password_verify($password, $user['password'])) {
+    $db->prepare("INSERT INTO tbl_login_attempt (ip_address, email) VALUES (?, ?)")->execute([$ip, $email]);
     header('Location: /arams/index.php?error=invalid'); exit;
 }
 if (!$user['is_active']) {
+    $db->prepare("INSERT INTO tbl_login_attempt (ip_address, email) VALUES (?, ?)")->execute([$ip, $email]);
     header('Location: /arams/index.php?error=inactive'); exit;
 }
 if ($user['role'] !== $role) {
+    $db->prepare("INSERT INTO tbl_login_attempt (ip_address, email) VALUES (?, ?)")->execute([$ip, $email]);
     header('Location: /arams/index.php?error=invalid'); exit;
 }
+
+// Success — clear this IP's failed attempts
+$db->prepare("DELETE FROM tbl_login_attempt WHERE ip_address = ?")->execute([$ip]);
 
 // Update last login
 $db->prepare("UPDATE tbl_user SET last_login = NOW() WHERE user_id = ?")

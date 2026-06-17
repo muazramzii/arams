@@ -4,6 +4,7 @@
 // ============================================================
 require_once __DIR__ . '/config/database.php';
 session_start();
+require_once __DIR__ . '/includes/csrf.php';
 
 if (($_SESSION['pwr_stage'] ?? '') !== 'reset'
     || empty($_SESSION['pwr_email'])
@@ -26,7 +27,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $p1 = (string)($_POST['password'] ?? '');
     $p2 = (string)($_POST['confirm'] ?? '');
 
-    if (strlen($p1) < 8) {
+    if (!csrf_verify()) {
+        $error = 'Security check failed. Please refresh and try again.';
+    } elseif (strlen($p1) < 8) {
         $error = 'Password must be at least 8 characters.';
     } elseif ($p1 !== $p2) {
         $error = 'Passwords do not match.';
@@ -73,6 +76,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <?php endif; ?>
 
             <form method="POST" action="/arams/reset_password.php">
+                <?= csrf_field() ?>
                 <div class="form-group">
                     <label class="form-label">New Password</label>
                     <div style="position:relative">

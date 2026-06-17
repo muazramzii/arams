@@ -5,6 +5,7 @@
 require_once __DIR__ . '/config/database.php';
 require_once __DIR__ . '/includes/mailer.php';
 session_start();
+require_once __DIR__ . '/includes/csrf.php';
 
 if (isset($_SESSION['user_id'])) { header('Location: /arams/index.php'); exit; }
 
@@ -19,7 +20,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $email = trim($_POST['email'] ?? '');
     $emailVal = htmlspecialchars($email, ENT_QUOTES);
 
-    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+    if (!csrf_verify()) {
+        $error = 'Security check failed. Please refresh and try again.';
+    } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
         $error = 'Please enter a valid email address.';
     } else {
         $db = getDB();
@@ -78,6 +81,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <?php endif; ?>
 
             <form method="POST" action="/arams/forgot_password.php">
+                <?= csrf_field() ?>
                 <div class="form-group">
                     <label class="form-label">Email Address</label>
                     <input type="email" name="email" class="form-control" placeholder="your.email@uthm.edu.my"

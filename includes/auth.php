@@ -16,10 +16,20 @@ function isLoggedIn(): bool {
 }
 
 function requireLogin(): void {
+    // Idle session timeout (30 minutes of inactivity)
+    $idleLimit = 1800;
+    if (isLoggedIn() && isset($_SESSION['last_activity'])
+        && (time() - (int)$_SESSION['last_activity']) > $idleLimit) {
+        $_SESSION = [];
+        session_destroy();
+        header('Location: /arams/index.php?timeout=1');
+        exit;
+    }
     if (!isLoggedIn()) {
         header('Location: /arams/index.php');
         exit;
     }
+    $_SESSION['last_activity'] = time();
 }
 
 function requireRole(string $role): void {

@@ -5,6 +5,7 @@
 require_once __DIR__ . '/config/database.php';
 require_once __DIR__ . '/includes/mailer.php';
 session_start();
+require_once __DIR__ . '/includes/csrf.php';
 
 if (($_SESSION['pwr_stage'] ?? '') !== 'verify' || empty($_SESSION['pwr_email'])) {
     header('Location: /arams/forgot_password.php');
@@ -39,7 +40,9 @@ if (($_GET['resend'] ?? '') === '1') {
 // ---- Verify submitted code ----
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $code = trim($_POST['code'] ?? '');
-    if (!preg_match('/^\d{6}$/', $code)) {
+    if (!csrf_verify()) {
+        $error = 'Security check failed. Please refresh and try again.';
+    } elseif (!preg_match('/^\d{6}$/', $code)) {
         $error = 'Enter the 6-digit code from your email.';
     } else {
         $db = getDB();
@@ -97,6 +100,7 @@ $maskedEmail = preg_replace_callback('/^(.).*(@.*)$/u', fn($m) => $m[1] . str_re
             <?php endif; ?>
 
             <form method="POST" action="/arams/verify_code.php">
+                <?= csrf_field() ?>
                 <div class="form-group">
                     <label class="form-label">6-Digit Code</label>
                     <input type="text" name="code" class="form-control" inputmode="numeric" pattern="\d{6}"
