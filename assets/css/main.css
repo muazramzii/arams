@@ -407,6 +407,16 @@ input, select, textarea, button { font-family: inherit; font-size: inherit; }
 @media (max-width: 980px) { .akpi-grid { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 520px) { .akpi-grid { grid-template-columns: 1fr; } }
 @media print { .akpi { box-shadow: none !important; border: 1px solid rgba(0,0,0,.08) !important; animation: none !important; } }
+
+/* ── Print / PDF export: let all content flow (no clipping), no scrollbars, hide app chrome ── */
+@media print {
+    html, body { height: auto !important; overflow: visible !important; background: #fff !important; }
+    .app-shell { display: block !important; min-height: 0 !important; }
+    .sidebar, .topbar, .sidebar-toggle, .no-print { display: none !important; }
+    .main-wrap { overflow: visible !important; display: block !important; }
+    .page-content { overflow: visible !important; height: auto !important; max-height: none !important; flex: none !important; }
+    .card, .akpi, .kpi-card { break-inside: avoid; page-break-inside: avoid; }
+}
 @media (prefers-reduced-motion: reduce) { .akpi { animation: none !important; opacity: 1 !important; transform: none !important; } }
 .bg-uthm    { background: linear-gradient(135deg, var(--blue), var(--teal)); }
 

@@ -28,12 +28,16 @@ $db      = getDB();
 // ── Build WHERE clauses ───────────────────────────────────
 $yearWhere    = $year !== 'all'      ? " AND p.pub_year = " . (int)$year : '';
 $facWhere     = $facultyId !== 'all' ? " AND l.faculty_id = " . (int)$facultyId : '';
-$yearWhereG   = $year !== 'all'      ? " AND YEAR(g.start_date) = " . (int)$year : '';
+$yearWhereG   = $year !== 'all'
+    ? " AND (g.start_date IS NULL OR YEAR(g.start_date) <= " . (int)$year . ")"
+    . " AND (g.end_date   IS NULL OR YEAR(g.end_date)   >= " . (int)$year . ")"
+    : '';
 
 // ── Fetch data based on report type ──────────────────────
 $rows  = [];
 $title = '';
 $cols  = [];
+$catColIdx = null;   // when set, summary counts records per category instead of summing numbers
 
 switch ($type) {
 
@@ -125,7 +129,10 @@ switch ($type) {
         $cols  = ['#','Research Group','Code','Faculty','Lecturers','Publications','Grants','Grant Amount (RM)','Income (RM)'];
         $facWhereRG = $facultyId !== 'all' ? " AND rg.faculty_id = " . (int)$facultyId : '';
         $ycPub = $year !== 'all' ? " AND p.pub_year = " . (int)$year : '';
-        $ycGr  = $year !== 'all' ? " AND YEAR(g.start_date) = " . (int)$year : '';
+        $ycGr  = $year !== 'all'
+            ? " AND (g.start_date IS NULL OR YEAR(g.start_date) <= " . (int)$year . ")"
+            . " AND (g.end_date   IS NULL OR YEAR(g.end_date)   >= " . (int)$year . ")"
+            : '';
         $ycInc = $year !== 'all' ? " AND inc.year_received = " . (int)$year : '';
         $sql = "SELECT rg.group_code, rg.group_name, f.faculty_code,
                   (SELECT COUNT(*) FROM tbl_lecturer l WHERE l.research_group_id = rg.group_id) AS lecturers,
@@ -194,6 +201,7 @@ switch ($type) {
     case 'awards':
         $title = 'Awards & IP Report';
         $cols  = ['#','Lecturer','Faculty','Type','Name','Level/IP Type','Year/Filing Date','Organiser/Status'];
+        $catColIdx = 3;   // summarise by "Type" (Award / Patent / Copyright / …)
         $sql   = "SELECT l.full_name, f.faculty_code, 'Award' AS rec_type,
                          a.award_name AS rec_name, a.level AS rec_level,
                          a.award_year AS rec_year, a.organiser AS rec_org
@@ -204,7 +212,7 @@ switch ($type) {
                   UNION ALL
                   SELECT l.full_name, f.faculty_code, ip.ip_type AS rec_type,
                          ip.ip_title AS rec_name, ip.ip_type AS rec_level,
-                         ip.filing_date AS rec_year, ip.status AS rec_org
+                         COALESCE(ip.grant_date, ip.filing_date) AS rec_year, ip.registration_status AS rec_org
                   FROM tbl_ip_record ip
                   JOIN tbl_research_data rd ON ip.data_id = rd.data_id
                   JOIN tbl_lecturer l ON l.lecturer_id = rd.lecturer_id
@@ -341,50 +349,77 @@ if ($format === 'CSV') {
         if ($tot > 0 && $txt >= $tot * 0.6) { $labelIdx = $ci; break; }
     }
 
-    // Detect numeric metric columns + their sums (skip label column and "#")
-    $numCols = [];
-    foreach ($cols as $ci => $cn) {
-        if ($ci === $labelIdx || trim((string)$cn) === '#') continue;
-        $sum = 0.0; $n = 0;
-        foreach ($rows as $r) {
-            $v = isset($r[$ci]) ? str_replace(',', '', (string)$r[$ci]) : '';
-            if ($v !== '' && is_numeric($v)) { $sum += (float)$v; $n++; }
-        }
-        if ($n > 0 && $n >= count($rows) * 0.4) $numCols[$ci] = $sum;
-    }
-    arsort($numCols);
-    $primaryIdx = $numCols ? array_key_first($numCols) : null;
-
-    // KPI cards: total records + up to 3 largest numeric sums
+    // ── Summary: categorical (count by category column) OR numeric (sum of metrics) ──
     $kpis = [['label' => 'Total Records', 'value' => number_format(count($rows))]];
-    $kc = 0;
-    foreach ($numCols as $ci => $sum) {
-        if ($kc++ >= 3) break;
-        $val = ($sum == floor($sum)) ? number_format($sum) : number_format($sum, 2);
-        $kpis[] = ['label' => $cols[$ci], 'value' => $val];
-    }
-
-    // Chart data: top 12 rows (with a non-zero metric) by the primary metric
     $chartLabels = $chartValues = [];
-    if ($primaryIdx !== null) {
-        $cr = array_values(array_filter($rows, function ($r) use ($primaryIdx) {
-            return (float)str_replace(',', '', (string)($r[$primaryIdx] ?? 0)) > 0;
-        }));
-        usort($cr, function ($a, $b) use ($primaryIdx) {
-            $av = (float)str_replace(',', '', (string)($a[$primaryIdx] ?? 0));
-            $bv = (float)str_replace(',', '', (string)($b[$primaryIdx] ?? 0));
-            return $bv <=> $av;
-        });
-        $cr = array_slice($cr, 0, 12);
-        foreach ($cr as $r) {
-            $lbl = (string)($r[$labelIdx] ?? '');
-            if (mb_strlen($lbl) > 16) $lbl = mb_substr($lbl, 0, 15) . '…';
-            $chartLabels[] = $lbl;
-            $chartValues[] = (float)str_replace(',', '', (string)($r[$primaryIdx] ?? 0));
+    $metricName = ''; $barTitle = ''; $pieTitle = '';
+
+    if ($catColIdx !== null) {
+        // Count records per distinct value of the category column
+        $counts = [];
+        foreach ($rows as $r) {
+            $key = trim((string)($r[$catColIdx] ?? ''));
+            if ($key === '') $key = '—';
+            $counts[$key] = ($counts[$key] ?? 0) + 1;
         }
+        arsort($counts);
+        $metricName = (string)$cols[$catColIdx];
+        $kc = 0;
+        foreach ($counts as $k => $c) {
+            if ($kc++ >= 3) break;
+            $kpis[] = ['label' => $k, 'value' => number_format($c)];
+        }
+        foreach (array_slice($counts, 0, 12, true) as $k => $c) {
+            $chartLabels[] = mb_strlen($k) > 16 ? mb_substr($k, 0, 15) . '…' : $k;
+            $chartValues[] = $c;
+        }
+        $hasChart = array_sum($chartValues) > 0;
+        $barTitle = 'Records by ' . $metricName;
+        $pieTitle = 'Distribution — ' . $metricName;
+    } else {
+        // Detect numeric metric columns + their sums (skip label column and "#")
+        $numCols = [];
+        foreach ($cols as $ci => $cn) {
+            if ($ci === $labelIdx || trim((string)$cn) === '#') continue;
+            $sum = 0.0; $n = 0;
+            foreach ($rows as $r) {
+                $v = isset($r[$ci]) ? str_replace(',', '', (string)$r[$ci]) : '';
+                if ($v !== '' && is_numeric($v)) { $sum += (float)$v; $n++; }
+            }
+            if ($n > 0 && $n >= count($rows) * 0.4) $numCols[$ci] = $sum;
+        }
+        arsort($numCols);
+        $primaryIdx = $numCols ? array_key_first($numCols) : null;
+
+        $kc = 0;
+        foreach ($numCols as $ci => $sum) {
+            if ($kc++ >= 3) break;
+            $val = ($sum == floor($sum)) ? number_format($sum) : number_format($sum, 2);
+            $kpis[] = ['label' => $cols[$ci], 'value' => $val];
+        }
+
+        if ($primaryIdx !== null) {
+            $cr = array_values(array_filter($rows, function ($r) use ($primaryIdx) {
+                return (float)str_replace(',', '', (string)($r[$primaryIdx] ?? 0)) > 0;
+            }));
+            usort($cr, function ($a, $b) use ($primaryIdx) {
+                $av = (float)str_replace(',', '', (string)($a[$primaryIdx] ?? 0));
+                $bv = (float)str_replace(',', '', (string)($b[$primaryIdx] ?? 0));
+                return $bv <=> $av;
+            });
+            $cr = array_slice($cr, 0, 12);
+            foreach ($cr as $r) {
+                $lbl = (string)($r[$labelIdx] ?? '');
+                if (mb_strlen($lbl) > 16) $lbl = mb_substr($lbl, 0, 15) . '…';
+                $chartLabels[] = $lbl;
+                $chartValues[] = (float)str_replace(',', '', (string)($r[$primaryIdx] ?? 0));
+            }
+        }
+        $hasChart   = $primaryIdx !== null && array_sum($chartValues) > 0;
+        $metricName = $primaryIdx !== null ? $cols[$primaryIdx] : '';
+        $barTitle = 'Top by ' . $metricName;
+        $pieTitle = 'Distribution — ' . $metricName;
     }
-    $hasChart   = $primaryIdx !== null && array_sum($chartValues) > 0;
-    $metricName = $primaryIdx !== null ? $cols[$primaryIdx] : '';
 
     $html  = '<!DOCTYPE html><html><head><meta charset="UTF-8">';
     $html .= '<title>' . htmlspecialchars($title) . '</title>';
@@ -439,8 +474,8 @@ if ($format === 'CSV') {
 
     if ($hasChart) {
         $html .= '<div class="charts">';
-        $html .= '<div class="chartbox"><h3>Top by ' . htmlspecialchars($metricName) . '</h3><div style="height:270px;position:relative"><canvas id="barC"></canvas></div></div>';
-        $html .= '<div class="chartbox"><h3>Distribution — ' . htmlspecialchars($metricName) . '</h3><div style="height:270px;position:relative"><canvas id="pieC"></canvas></div></div>';
+        $html .= '<div class="chartbox"><h3>' . htmlspecialchars($barTitle) . '</h3><div style="height:270px;position:relative"><canvas id="barC"></canvas></div></div>';
+        $html .= '<div class="chartbox"><h3>' . htmlspecialchars($pieTitle) . '</h3><div style="height:270px;position:relative"><canvas id="pieC"></canvas></div></div>';
         $html .= '</div>';
     }
 

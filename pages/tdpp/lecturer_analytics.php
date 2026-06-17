@@ -110,9 +110,9 @@ $typeMax = max(array_column($pubTypes, 'cnt') ?: [1]);
 $barPcts = [];  foreach ($pubTrend as $r) $barPcts[]  = round(($r['cnt'] / $pubMax)  * 100);
 $typePcts = []; foreach ($pubTypes as $r) $typePcts[] = round(($r['cnt'] / $typeMax) * 100);
 
-$pubTypeColors  = ['#0B3C5D','#1B998B','#3b82f6','#8b5cf6','#f59e0b','#ef4444','#22c55e','#ec4899'];
-$grantCatColors = ['#0B3C5D','#1B998B','#3b82f6','#f59e0b','#8b5cf6','#ef4444','#22c55e'];
-$grantRoleColors= ['#0B3C5D','#1B998B','#f59e0b'];
+$pubTypeColors  = ['#2563eb','#8b5cf6','#14b8a6','#60a5fa','#a78bfa','#5eead4','#94a3b8'];
+$grantCatColors = ['#2563eb','#8b5cf6','#14b8a6','#60a5fa','#a78bfa','#5eead4','#94a3b8'];
+$grantRoleColors= ['#2563eb','#8b5cf6','#14b8a6'];
 ?>
 
 <!-- Header -->
@@ -129,19 +129,35 @@ $grantRoleColors= ['#0B3C5D','#1B998B','#f59e0b'];
 </div>
 
 <!-- KPI Cards -->
-<div class="kpi-grid">
-    <div class="kpi-card bg-blue"><i class="fas fa-file-alt"></i>
-        <div class="kpi-val"><?= number_format((int)($kpiRow['pubs'] ?? 0)) ?></div>
-        <div class="kpi-label">Total Publications</div></div>
-    <div class="kpi-card bg-purple"><i class="fas fa-trophy"></i>
-        <div class="kpi-val"><?= number_format((int)($kpiRow['grants'] ?? 0)) ?></div>
-        <div class="kpi-label">Total Grants</div></div>
-    <div class="kpi-card bg-teal"><i class="fas fa-chart-line"></i>
-        <div class="kpi-val"><?= number_format((float)($kpiRow['hindex'] ?? 0), 0) ?></div>
-        <div class="kpi-label">H-Index</div></div>
-    <div class="kpi-card bg-green"><i class="fas fa-quote-left"></i>
-        <div class="kpi-val"><?= number_format((int)($kpiRow['citations'] ?? 0)) ?></div>
-        <div class="kpi-label">Total Citations</div></div>
+<div class="akpi-grid">
+    <div class="akpi" style="--g1:#3b82f6;--g2:#2563eb">
+        <div class="akpi-ic"><i class="fas fa-file-alt"></i></div>
+        <div class="akpi-body">
+            <div class="akpi-num" data-target="<?= (int)($kpiRow['pubs'] ?? 0) ?>" data-dec="0">0</div>
+            <div class="akpi-label">Total Publications</div>
+        </div>
+    </div>
+    <div class="akpi" style="--g1:#8b5cf6;--g2:#6d28d9">
+        <div class="akpi-ic"><i class="fas fa-trophy"></i></div>
+        <div class="akpi-body">
+            <div class="akpi-num" data-target="<?= (int)($kpiRow['grants'] ?? 0) ?>" data-dec="0">0</div>
+            <div class="akpi-label">Total Grants</div>
+        </div>
+    </div>
+    <div class="akpi" style="--g1:#14b8a6;--g2:#0d9488">
+        <div class="akpi-ic"><i class="fas fa-chart-line"></i></div>
+        <div class="akpi-body">
+            <div class="akpi-num" data-target="<?= (float)($kpiRow['hindex'] ?? 0) ?>" data-dec="0">0</div>
+            <div class="akpi-label">H-Index</div>
+        </div>
+    </div>
+    <div class="akpi" style="--g1:#f43f5e;--g2:#be123c">
+        <div class="akpi-ic"><i class="fas fa-quote-left"></i></div>
+        <div class="akpi-body">
+            <div class="akpi-num" data-target="<?= (int)($kpiRow['citations'] ?? 0) ?>" data-dec="0">0</div>
+            <div class="akpi-label">Total Citations</div>
+        </div>
+    </div>
 </div>
 
 <!-- Row 1: Trend + Quartile -->
@@ -253,11 +269,11 @@ var ARAMS_LEC_NAME = '<?= addslashes(($lec['title']?$lec['title'].' ':'').$lec['
 
 document.addEventListener('DOMContentLoaded', function () {
     renderDonut('quartileDonut', [
-        { label:'Q1', value:<?= (int)($qMap['Q1'] ?? 0) ?>, color:'#0B3C5D' },
-        { label:'Q2', value:<?= (int)($qMap['Q2'] ?? 0) ?>, color:'#1B998B' },
-        { label:'Q3', value:<?= (int)($qMap['Q3'] ?? 0) ?>, color:'#3b82f6' },
-        { label:'Q4', value:<?= (int)($qMap['Q4'] ?? 0) ?>, color:'#8b5cf6' },
-        { label:'N/A', value:<?= (int)($qMap['N/A'] ?? 0) ?>, color:'#e2e8f0' },
+        { label:'Q1', value:<?= (int)($qMap['Q1'] ?? 0) ?>, color:'#1d4ed8' },
+        { label:'Q2', value:<?= (int)($qMap['Q2'] ?? 0) ?>, color:'#3b82f6' },
+        { label:'Q3', value:<?= (int)($qMap['Q3'] ?? 0) ?>, color:'#60a5fa' },
+        { label:'Q4', value:<?= (int)($qMap['Q4'] ?? 0) ?>, color:'#93c5fd' },
+        { label:'N/A', value:<?= (int)($qMap['N/A'] ?? 0) ?>, color:'#cbd5e1' },
     ]);
     <?php if (!empty($pubTypes)): ?>
     renderDonut('pubTypeDonut', [
