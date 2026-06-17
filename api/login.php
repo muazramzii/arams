@@ -67,6 +67,13 @@ $db->prepare("DELETE FROM tbl_login_attempt WHERE ip_address = ?")->execute([$ip
 $db->prepare("UPDATE tbl_user SET last_login = NOW() WHERE user_id = ?")
    ->execute([$user['user_id']]);
 
+// Audit trail
+try {
+    $db->prepare("INSERT INTO tbl_audit_log (user_id, action, target_id, target_type, details)
+                  VALUES (?, 'Logged In', ?, 'User', ?)")
+       ->execute([$user['user_id'], $user['user_id'], 'Role: ' . $user['role']]);
+} catch (Exception $e) { /* ignore audit errors */ }
+
 // Set session — including profile_photo
 $_SESSION['user_id']       = $user['user_id'];
 $_SESSION['role']          = $user['role'];

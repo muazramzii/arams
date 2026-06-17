@@ -44,6 +44,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $hash = password_hash($p1, PASSWORD_DEFAULT);
             $db->prepare("UPDATE tbl_user SET password = ? WHERE email = ?")->execute([$hash, $email]);
             $db->prepare("UPDATE tbl_password_reset SET used = 1 WHERE reset_id = ?")->execute([$resetId]);
+
+            // Audit trail (sensitive action)
+            try {
+                $uid = $db->prepare("SELECT user_id FROM tbl_user WHERE email = ?");
+                $uid->execute([$email]);
+                $userId = (int)$uid->fetchColumn();
+                if ($userId) {
+                    $db->prepare("INSERT INTO tbl_audit_log (user_id, action, target_id, target_type, details)
+                                  VALUES (?, 'Password Reset', ?, 'User', ?)")
+                       ->execute([$userId, $userId, 'Self-service password reset via email OTP']);
+                }
+            } catch (Exception $e) { /* ignore audit errors */ }
+
             unset($_SESSION['pwr_email'], $_SESSION['pwr_stage'], $_SESSION['pwr_reset_id'],
                   $_SESSION['pwr_verified_at'], $_SESSION['pwr_sent_at']);
             header('Location: /arams/index.php?reset=success');
