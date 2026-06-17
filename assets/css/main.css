@@ -381,6 +381,15 @@ input, select, textarea, button { font-family: inherit; font-size: inherit; }
 .bg-purple  { background: linear-gradient(135deg, #8b5cf6, #7c3aed); }
 .bg-teal    { background: linear-gradient(135deg, #14b8a6, #0f766e); }
 .bg-green   { background: linear-gradient(135deg, #22c55e, #16a34a); }
+
+/* ── Global entrance animation + hover (all pages) ── */
+@keyframes aramsReveal { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+.card, .pub-card { animation: aramsReveal .5s ease both; transition: box-shadow .2s ease; }
+.card:hover, .pub-card:hover { box-shadow: 0 10px 28px rgba(2,6,23,.10); }
+.kpi-card { animation: aramsReveal .5s ease both; transition: transform .2s ease, box-shadow .2s ease; }
+.kpi-card:hover { transform: translateY(-4px); box-shadow: 0 14px 30px rgba(2,6,23,.25); }
+@media print { .card, .pub-card, .kpi-card { animation: none !important; opacity: 1 !important; transform: none !important; } }
+@media (prefers-reduced-motion: reduce) { .card, .pub-card, .kpi-card { animation: none !important; opacity: 1 !important; transform: none !important; } }
 .bg-uthm    { background: linear-gradient(135deg, var(--blue), var(--teal)); }
 
 /* ── GRID LAYOUTS ─────────────────────────────────────────── */
@@ -742,18 +751,5 @@ table.arams-table {
     justify-content: center;
 }
 
-/* Publication Trend — color per year */
-.bar-chart .bar-col:nth-child(1) .bar { background: #0EA5E9 !important; }
-.bar-chart .bar-col:nth-child(2) .bar { background: #06B6D4 !important; }
-.bar-chart .bar-col:nth-child(3) .bar { background: #14B8A6 !important; }
-.bar-chart .bar-col:nth-child(4) .bar { background: #1B998B !important; }
-.bar-chart .bar-col:nth-child(5) .bar { background: #8B5CF6 !important; }
-.bar-chart .bar-col:nth-child(6) .bar { background: #EC4899 !important; }
-
-/* Publication Trend — UTHM premium theme (navy → teal gradient) */
-.bar-chart .bar-col:nth-child(1) .bar { background: linear-gradient(180deg, #0B3C5D 0%, #1B5A8A 100%) !important; }
-.bar-chart .bar-col:nth-child(2) .bar { background: linear-gradient(180deg, #144D6E 0%, #246A99 100%) !important; }
-.bar-chart .bar-col:nth-child(3) .bar { background: linear-gradient(180deg, #1A6B7E 0%, #2A8AA3 100%) !important; }
-.bar-chart .bar-col:nth-child(4) .bar { background: linear-gradient(180deg, #1B998B 0%, #2BB8A8 100%) !important; }
-.bar-chart .bar-col:nth-child(5) .bar { background: linear-gradient(180deg, #2B8B7E 0%, #3FAB9C 100%) !important; }
-.bar-chart .bar-col:nth-child(6) .bar { background: linear-gradient(180deg, #3FAB9C 0%, #5FCEC0 100%) !important; }
+/* Publication Trend — single calm colour for all bars (clean, like Power BI) */
+.bar-chart .bar { background: linear-gradient(180deg,#60a5fa,#2563eb) !important; }

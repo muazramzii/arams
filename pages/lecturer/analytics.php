@@ -64,6 +64,8 @@ if ($isAdmin) {
          JOIN tbl_faculty f ON f.faculty_id=l.faculty_id
          GROUP BY f.faculty_id ORDER BY pubs DESC LIMIT 8"
     )->fetchAll();
+    $hTrend = [];
+    $facAvg = [];
 
 } else {
     $kpiRow = $db->prepare(
@@ -122,6 +124,23 @@ if ($isAdmin) {
     );
     $grantStatus->execute([$lecId]); $grantStatus = $grantStatus->fetch();
 
+    // H-Index trend (by year) + faculty-average comparison
+    $hTrend = $db->prepare(
+        "SELECT h.record_year AS yr, MAX(h.hindex_value) AS h
+         FROM tbl_hindex h JOIN tbl_research_data rd ON h.data_id = rd.data_id
+         WHERE rd.lecturer_id = ? AND rd.is_deleted = 0
+         GROUP BY h.record_year ORDER BY h.record_year"
+    );
+    $hTrend->execute([$lecId]); $hTrend = $hTrend->fetchAll();
+
+    $facAvg = $db->prepare(
+        "SELECT AVG(k.total_publications) AS pubs, AVG(k.total_grants) AS grants,
+                AVG(k.current_hindex) AS hindex, AVG(k.total_citations) AS citations
+         FROM vw_lecturer_kpi k JOIN tbl_lecturer l ON l.lecturer_id = k.lecturer_id
+         WHERE l.faculty_id = (SELECT faculty_id FROM tbl_lecturer WHERE lecturer_id = ?)"
+    );
+    $facAvg->execute([$lecId]); $facAvg = $facAvg->fetch();
+
     $facPerf = [];
 }
 
@@ -139,10 +158,10 @@ $facPcts  = [];
 foreach ($facPerf  as $r) $facPcts[]  = $facMax > 0 ? round(($r['pubs'] / $facMax) * 100) : 0;
 
 // ── Colour palettes for donut charts ─────────────────────
-$pubTypeColors  = ['#0B3C5D','#1B998B','#3b82f6','#8b5cf6','#f59e0b','#ef4444','#22c55e','#ec4899'];
-$grantCatColors = ['#0B3C5D','#1B998B','#3b82f6','#f59e0b','#8b5cf6','#ef4444','#22c55e'];
-$grantRoleColors= ['#0B3C5D','#1B998B','#f59e0b'];
-$quartileColors = ['#0B3C5D','#1B998B','#3b82f6','#8b5cf6','#e2e8f0'];
+$pubTypeColors  = ['#2563eb','#8b5cf6','#14b8a6','#60a5fa','#a78bfa','#5eead4','#94a3b8'];
+$grantCatColors = ['#2563eb','#8b5cf6','#14b8a6','#60a5fa','#a78bfa','#5eead4','#94a3b8'];
+$grantRoleColors= ['#2563eb','#8b5cf6','#14b8a6'];
+$quartileColors = ['#1d4ed8','#3b82f6','#60a5fa','#93c5fd','#cbd5e1'];
 ?>
 
 <!-- Page Header -->
@@ -331,6 +350,59 @@ $quartileColors = ['#0B3C5D','#1B998B','#3b82f6','#8b5cf6','#e2e8f0'];
     <?php endif; ?>
 </div>
 
+<!-- Lecturer-only: comparison + h-index trend -->
+<?php if (!$isAdmin): ?>
+<div class="grid-2" style="margin-bottom:1rem">
+
+    <div class="card">
+        <div class="card-title"><i class="fas fa-scale-balanced" style="color:#8b5cf6"></i> You vs Faculty Average</div>
+        <?php
+            $cmp = [
+                ['label' => 'Publications', 'you' => (float)($kpiRow['pubs'] ?? 0),      'avg' => (float)($facAvg['pubs'] ?? 0),      'dec' => 0],
+                ['label' => 'Grants',       'you' => (float)($kpiRow['grants'] ?? 0),    'avg' => (float)($facAvg['grants'] ?? 0),    'dec' => 0],
+                ['label' => 'H-Index',      'you' => (float)($kpiRow['hindex'] ?? 0),    'avg' => (float)($facAvg['hindex'] ?? 0),    'dec' => 1],
+                ['label' => 'Citations',    'you' => (float)($kpiRow['citations'] ?? 0), 'avg' => (float)($facAvg['citations'] ?? 0), 'dec' => 0],
+            ];
+        ?>
+        <?php foreach ($cmp as $m): $mx = max($m['you'], $m['avg'], 1); $yw = round($m['you'] / $mx * 100); $aw = round($m['avg'] / $mx * 100); ?>
+        <div style="margin-bottom:14px">
+            <div style="font-size:13px;font-weight:600;margin-bottom:5px"><?= $m['label'] ?></div>
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+                <span style="flex:0 0 64px;font-size:11px;color:var(--muted)">You</span>
+                <div style="flex:1;height:13px;background:#e9eef5;border-radius:4px;overflow:hidden"><div style="height:100%;width:<?= $yw ?>%;background:linear-gradient(90deg,#3b82f6,#2563eb);border-radius:4px"></div></div>
+                <span style="flex:0 0 52px;text-align:right;font-size:12px;font-weight:700"><?= number_format($m['you'], $m['dec']) ?></span>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px">
+                <span style="flex:0 0 64px;font-size:11px;color:var(--muted)">Faculty avg</span>
+                <div style="flex:1;height:13px;background:#e9eef5;border-radius:4px;overflow:hidden"><div style="height:100%;width:<?= $aw ?>%;background:#cbd5e1;border-radius:4px"></div></div>
+                <span style="flex:0 0 52px;text-align:right;font-size:12px;font-weight:600;color:var(--muted)"><?= number_format($m['avg'], $m['dec']) ?></span>
+            </div>
+        </div>
+        <?php endforeach; ?>
+        <p style="font-size:11px;color:var(--muted);margin-top:2px">Compared against the average of all lecturers in your faculty.</p>
+    </div>
+
+    <div class="card">
+        <div class="card-title"><i class="fas fa-chart-line" style="color:#0d9488"></i> H-Index Over Time</div>
+        <?php if (empty($hTrend)): ?>
+        <p style="color:var(--muted);font-size:13px;text-align:center;padding:2rem 0">No h-index records yet.</p>
+        <?php else: $hMax = max(array_column($hTrend, 'h') ?: [1]); ?>
+        <div class="bar-chart" style="height:170px">
+            <?php foreach ($hTrend as $r): $p = $hMax > 0 ? round($r['h'] / $hMax * 100) : 0; ?>
+            <div class="bar-col" title="H-Index <?= (int)$r['h'] ?> in <?= $r['yr'] ?>">
+                <div class="bar-val"><?= (int)$r['h'] ?></div>
+                <div class="bar" style="height:<?= $r['h'] > 0 ? max($p, 8) : 0 ?>%"></div>
+                <div class="bar-label"><?= $r['yr'] ?></div>
+            </div>
+            <?php endforeach; ?>
+        </div>
+        <div style="font-size:10px;color:var(--muted);text-align:center;margin-top:6px">Your h-index per recorded year</div>
+        <?php endif; ?>
+    </div>
+
+</div>
+<?php endif; ?>
+
 <!-- Row 4: Faculty Comparison (Admin only) -->
 <?php if ($isAdmin && !empty($facPerf)): ?>
 <div class="card">
@@ -392,11 +464,11 @@ $quartileColors = ['#0B3C5D','#1B998B','#3b82f6','#8b5cf6','#e2e8f0'];
 document.addEventListener('DOMContentLoaded', function () {
 
     renderDonut('quartileDonut', [
-        { label:'Q1',  value:<?= (int)($qMap['Q1']  ?? 0) ?>, color:'#0B3C5D' },
-        { label:'Q2',  value:<?= (int)($qMap['Q2']  ?? 0) ?>, color:'#1B998B' },
-        { label:'Q3',  value:<?= (int)($qMap['Q3']  ?? 0) ?>, color:'#3b82f6' },
-        { label:'Q4',  value:<?= (int)($qMap['Q4']  ?? 0) ?>, color:'#8b5cf6' },
-        { label:'N/A', value:<?= (int)($qMap['N/A'] ?? 0) ?>, color:'#e2e8f0' },
+        { label:'Q1',  value:<?= (int)($qMap['Q1']  ?? 0) ?>, color:'#1d4ed8' },
+        { label:'Q2',  value:<?= (int)($qMap['Q2']  ?? 0) ?>, color:'#3b82f6' },
+        { label:'Q3',  value:<?= (int)($qMap['Q3']  ?? 0) ?>, color:'#60a5fa' },
+        { label:'Q4',  value:<?= (int)($qMap['Q4']  ?? 0) ?>, color:'#93c5fd' },
+        { label:'N/A', value:<?= (int)($qMap['N/A'] ?? 0) ?>, color:'#cbd5e1' },
     ]);
 
     <?php if (!empty($pubTypes)): ?>
@@ -425,8 +497,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
     <?php if (((int)($grantStatus['active'] ?? 0) + (int)($grantStatus['nonactive'] ?? 0)) > 0): ?>
     renderDonut('grantStatusDonut', [
-        { label: 'Active',     value: <?= (int)($grantStatus['active'] ?? 0) ?>,    color: '#22c55e' },
-        { label: 'Non-Active', value: <?= (int)($grantStatus['nonactive'] ?? 0) ?>, color: '#ef4444' }
+        { label: 'Active',     value: <?= (int)($grantStatus['active'] ?? 0) ?>,    color: '#14b8a6' },
+        { label: 'Non-Active', value: <?= (int)($grantStatus['nonactive'] ?? 0) ?>, color: '#94a3b8' }
     ]);
     <?php endif; ?>
 

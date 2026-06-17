@@ -101,9 +101,114 @@ foreach ($pubTrend as $r) $barPcts[] = round(($r['cnt'] / $pubMax) * 100);
 $typePcts = [];
 foreach ($pubTypes as $r) $typePcts[] = round(($r['cnt'] / $typeMax) * 100);
 
-$pubTypeColors  = ['#0B3C5D','#1B998B','#3b82f6','#8b5cf6','#f59e0b','#ef4444','#22c55e','#ec4899'];
-$grantCatColors = ['#0B3C5D','#1B998B','#3b82f6','#f59e0b','#8b5cf6','#ef4444','#22c55e'];
-$grantRoleColors= ['#0B3C5D','#1B998B','#f59e0b'];
+$pubTypeColors  = ['#2563eb','#8b5cf6','#14b8a6','#60a5fa','#a78bfa','#5eead4','#94a3b8'];
+$grantCatColors = ['#2563eb','#8b5cf6','#14b8a6','#60a5fa','#a78bfa','#5eead4','#94a3b8'];
+$grantRoleColors= ['#2563eb','#8b5cf6','#14b8a6'];
+
+// ── H-Index (faculty-scoped) ──
+$hTop = $db->prepare(
+    "SELECT l.full_name, k.current_hindex AS h
+     FROM vw_lecturer_kpi k JOIN tbl_lecturer l ON l.lecturer_id = k.lecturer_id
+     WHERE l.faculty_id = ? AND k.current_hindex > 0 ORDER BY k.current_hindex DESC LIMIT 6"
+);
+$hTop->execute([$facId]); $hTop = $hTop->fetchAll();
+
+$hScatter = $db->prepare(
+    "SELECT k.current_hindex AS h, k.total_citations AS c
+     FROM vw_lecturer_kpi k JOIN tbl_lecturer l ON l.lecturer_id = k.lecturer_id
+     WHERE l.faculty_id = ? AND (k.current_hindex > 0 OR k.total_citations > 0)"
+);
+$hScatter->execute([$facId]); $hScatter = $hScatter->fetchAll();
+
+// ── Research groups (faculty-scoped) ──
+$rgCat = $db->prepare("SELECT research_group_category AS cat, COUNT(*) AS cnt FROM tbl_lecturer WHERE faculty_id = ? GROUP BY research_group_category");
+$rgCat->execute([$facId]); $rgCat = $rgCat->fetchAll();
+
+$rgSizes = $db->prepare(
+    "SELECT g.group_name AS name, COUNT(l.lecturer_id) AS cnt
+     FROM tbl_research_group g JOIN tbl_lecturer l ON l.research_group_id = g.group_id
+     WHERE l.faculty_id = ? GROUP BY g.group_id HAVING cnt > 0 ORDER BY cnt DESC LIMIT 10"
+);
+$rgSizes->execute([$facId]); $rgSizes = $rgSizes->fetchAll();
+
+$rgMembers = $db->prepare(
+    "SELECT l.full_name AS name, l.staff_no, l.grade, l.research_group_category AS cat,
+            COALESCE(g.group_name, NULLIF(l.research_centre,'')) AS grp
+     FROM tbl_lecturer l LEFT JOIN tbl_research_group g ON g.group_id = l.research_group_id
+     WHERE l.faculty_id = ? ORDER BY l.full_name"
+);
+$rgMembers->execute([$facId]); $rgMembers = $rgMembers->fetchAll();
+
+// ── Derived: category map + sizes + member name maps ──
+$rgCatMap = ['FG' => 0, 'CoR' => 0, 'External' => 0, 'Not set' => 0];
+foreach ($rgCat as $r) { $k = trim((string)($r['cat'] ?? '')); if ($k === '') $k = 'Not set'; if (!isset($rgCatMap[$k])) $rgCatMap[$k] = 0; $rgCatMap[$k] += (int)$r['cnt']; }
+$rgSizeMax = $rgSizes ? max(array_column($rgSizes, 'cnt')) : 1;
+$gaugeMax  = max(20, (int)ceil(($hTop[0]['h'] ?? 0) / 5) * 5);
+$grpMembers = []; $catMembers = [];
+foreach ($rgMembers as $m) {
+    $rec = ['name' => $m['name'], 'staff_no' => $m['staff_no'], 'grade' => $m['grade'], 'cat' => $m['cat']];
+    if (!empty($m['grp'])) $grpMembers[$m['grp']][] = $rec;
+    $c = trim((string)($m['cat'] ?? '')); if ($c === '') $c = 'Not set';
+    $catMembers[$c][] = $rec;
+}
+
+// ── SVG helpers (server-rendered, print-safe) ──
+function svgScatter(array $pts, float $avgH): string {
+    $W=440; $H=280; $pl=50; $pr=14; $ptp=14; $pb=42;
+    $plotW=$W-$pl-$pr; $plotH=$H-$ptp-$pb; $maxH=1; $maxC=1;
+    foreach ($pts as $p){ $maxH=max($maxH,(float)$p['h']); $maxC=max($maxC,(float)$p['c']); }
+    $maxH=ceil(max($maxH,$avgH)/5)*5; if($maxH<5)$maxH=5; $maxC=ceil($maxC/200)*200; if($maxC<1)$maxC=1;
+    $X=function($h)use($pl,$plotW,$maxH){ return $pl + ($h/$maxH)*$plotW; };
+    $Y=function($c)use($ptp,$plotH,$maxC){ return $ptp + $plotH - ($c/$maxC)*$plotH; };
+    $s='<svg viewBox="0 0 '.$W.' '.$H.'" width="100%" style="max-height:300px" xmlns="http://www.w3.org/2000/svg" font-family="inherit">';
+    for($i=0;$i<=4;$i++){ $cy=$ptp+$plotH-($i/4)*$plotH; $val=round($maxC*$i/4);
+        $s.='<line x1="'.$pl.'" y1="'.$cy.'" x2="'.($W-$pr).'" y2="'.$cy.'" stroke="#eef2f7" stroke-width="1"/>';
+        $s.='<text x="'.($pl-6).'" y="'.($cy+3).'" font-size="9" fill="#94a3b8" text-anchor="end">'.number_format($val).'</text>'; }
+    for($i=0;$i<=5;$i++){ $cx=$pl+($i/5)*$plotW; $val=round($maxH*$i/5);
+        $s.='<text x="'.$cx.'" y="'.($H-$pb+16).'" font-size="9" fill="#94a3b8" text-anchor="middle">'.$val.'</text>'; }
+    $s.='<text x="'.($pl+$plotW/2).'" y="'.($H-5).'" font-size="10" fill="#64748b" text-anchor="middle">H-Index</text>';
+    $s.='<text x="13" y="'.($ptp+$plotH/2).'" font-size="10" fill="#64748b" text-anchor="middle" transform="rotate(-90 13 '.($ptp+$plotH/2).')">Citations</text>';
+    $ax=$X($avgH);
+    $s.='<line x1="'.round($ax,1).'" y1="'.$ptp.'" x2="'.round($ax,1).'" y2="'.($ptp+$plotH).'" stroke="#f59e0b" stroke-width="1.5" stroke-dasharray="4 3"/>';
+    $s.='<text x="'.round($ax+3,1).'" y="'.($ptp+10).'" font-size="8" fill="#d97706">avg '.number_format($avgH,1).'</text>';
+    foreach ($pts as $p){ $cx=$X((float)$p['h']); $cy=$Y((float)$p['c']);
+        $s.='<circle cx="'.round($cx,1).'" cy="'.round($cy,1).'" r="4.5" fill="#0d9488" fill-opacity="0.5" stroke="#0d9488" stroke-width="1"/>'; }
+    $s.='</svg>'; return $s;
+}
+function svgGauge(float $val, float $max): string {
+    $max=max($max,1); $v=max(0.0,min($val,$max)); $frac=$v/$max;
+    $W=240;$H=158;$cx=120;$cy=138;$r=92;$sw=18;
+    $theta=(1-$frac)*M_PI; $vx=$cx+$r*cos($theta); $vy=$cy-$r*sin($theta); $lx=$cx-$r; $rx=$cx+$r;
+    $s='<svg viewBox="0 0 '.$W.' '.$H.'" width="100%" style="max-height:175px" xmlns="http://www.w3.org/2000/svg" font-family="inherit">';
+    $s.='<defs><linearGradient id="ggt" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#2dd4bf"/><stop offset="1" stop-color="#0d9488"/></linearGradient></defs>';
+    $s.='<path d="M '.$lx.' '.$cy.' A '.$r.' '.$r.' 0 0 1 '.$rx.' '.$cy.'" fill="none" stroke="#e2e8f0" stroke-width="'.$sw.'" stroke-linecap="round"/>';
+    $s.='<path d="M '.$lx.' '.$cy.' A '.$r.' '.$r.' 0 0 1 '.round($vx,2).' '.round($vy,2).'" fill="none" stroke="url(#ggt)" stroke-width="'.$sw.'" stroke-linecap="round"/>';
+    $s.='<text x="'.$cx.'" y="'.($cy-16).'" font-size="36" font-weight="800" fill="#0f172a" text-anchor="middle">'.number_format($val,1).'</text>';
+    $s.='<text x="'.$cx.'" y="'.($cy+4).'" font-size="11" fill="#64748b" text-anchor="middle">Average H-Index</text>';
+    $s.='<text x="'.$lx.'" y="'.($cy+20).'" font-size="9" fill="#94a3b8" text-anchor="middle">0</text>';
+    $s.='<text x="'.$rx.'" y="'.($cy+20).'" font-size="9" fill="#94a3b8" text-anchor="middle">'.round($max).'</text>';
+    $s.='</svg>'; return $s;
+}
+function rgDonut(array $segs): string {
+    $total = 0; foreach ($segs as $s) $total += $s['value'];
+    if ($total <= 0) return '<div style="color:var(--muted);font-size:13px;padding:20px">No data.</div>';
+    $r = 54; $circ = 2 * M_PI * $r; $off = 0;
+    $svg = '<svg viewBox="0 0 140 140" width="140" height="140" style="flex-shrink:0" xmlns="http://www.w3.org/2000/svg">';
+    $svg .= '<circle cx="70" cy="70" r="54" fill="none" stroke="#eef2f7" stroke-width="20"/>';
+    foreach ($segs as $seg) {
+        if ($seg['value'] <= 0) continue;
+        $len = $circ * $seg['value'] / $total;
+        $key = htmlspecialchars($seg['key'] ?? $seg['label'], ENT_QUOTES);
+        $svg .= '<circle class="rg-seg" data-cat="' . $key . '" style="cursor:pointer" cx="70" cy="70" r="54" fill="none" stroke="' . $seg['color'] . '" stroke-width="20" '
+              . 'stroke-dasharray="' . round($len, 2) . ' ' . round($circ - $len, 2) . '" '
+              . 'stroke-dashoffset="' . round(-$off, 2) . '" transform="rotate(-90 70 70)" stroke-linecap="butt"><title>' . $key . '</title></circle>';
+        $off += $len;
+    }
+    $svg .= '<text x="70" y="66" font-size="24" font-weight="800" fill="#0f172a" text-anchor="middle">' . $total . '</text>';
+    $svg .= '<text x="70" y="84" font-size="10" fill="#64748b" text-anchor="middle">staff</text>';
+    $svg .= '</svg>';
+    return $svg;
+}
 ?>
 
 <!-- Page Header -->
@@ -267,6 +372,121 @@ $grantRoleColors= ['#0B3C5D','#1B998B','#f59e0b'];
     <?php endif; ?>
 </div>
 
+<!-- H-Index visuals (faculty) -->
+<div class="grid-2" style="margin-bottom:1rem">
+    <div class="card">
+        <div class="card-title"><i class="fas fa-braille" style="color:#0d9488"></i> H-Index vs Citations
+            <span style="font-size:11px;color:var(--muted);font-weight:400;margin-left:4px">(each dot = a lecturer)</span>
+        </div>
+        <?php if (empty($hScatter)): ?>
+        <p style="color:var(--muted);font-size:13px">No data yet.</p>
+        <?php else: ?>
+        <?= svgScatter($hScatter, (float)($kpiRow['hindex'] ?? 0)) ?>
+        <?php endif; ?>
+    </div>
+    <div class="card">
+        <div class="card-title"><i class="fas fa-gauge-high" style="color:#8b5cf6"></i> Average H-Index &amp; Top Researchers</div>
+        <?= svgGauge((float)($kpiRow['hindex'] ?? 0), $gaugeMax) ?>
+        <?php if (!empty($hTop)): $hMax = max(1, (int)round((float)$hTop[0]['h'])); ?>
+        <div style="margin-top:10px;border-top:1px solid var(--border);padding-top:12px">
+            <?php foreach ($hTop as $t): $hv = (int)round((float)$t['h']); $w = round($hv / $hMax * 100); ?>
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:9px">
+                <span style="flex:0 0 150px;font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><?= htmlspecialchars($t['full_name']) ?></span>
+                <div style="flex:1;position:relative;height:14px">
+                    <div style="position:absolute;top:6px;left:0;width:<?= $w ?>%;height:2px;background:#cbd5e1"></div>
+                    <div style="position:absolute;top:2px;left:calc(<?= $w ?>% - 5px);width:11px;height:11px;border-radius:50%;background:#0d9488;box-shadow:0 0 0 2px #fff"></div>
+                </div>
+                <span style="flex:0 0 26px;text-align:right;font-size:13px;font-weight:700;color:#0d9488"><?= $hv ?></span>
+            </div>
+            <?php endforeach; ?>
+        </div>
+        <?php endif; ?>
+    </div>
+</div>
+
+<!-- Research Group overview (faculty) -->
+<div class="grid-2" style="margin-bottom:1rem">
+    <div class="card">
+        <div class="card-title"><i class="fas fa-chart-pie" style="color:#8b5cf6"></i> Staff by Research Category
+            <span style="font-size:11px;color:var(--muted);font-weight:400;margin-left:4px">(click for names)</span>
+        </div>
+        <?php
+            $rgSegs = [
+                ['key' => 'FG',       'label' => 'FG (Focus Group)',         'value' => $rgCatMap['FG'],       'color' => '#0d9488'],
+                ['key' => 'CoR',      'label' => 'CoR (Centre of Research)', 'value' => $rgCatMap['CoR'],      'color' => '#8b5cf6'],
+                ['key' => 'External', 'label' => 'External',                 'value' => $rgCatMap['External'], 'color' => '#2563eb'],
+                ['key' => 'Not set',  'label' => 'Not set',                  'value' => $rgCatMap['Not set'],  'color' => '#94a3b8'],
+            ];
+            $rgTotal = array_sum(array_column($rgSegs, 'value'));
+        ?>
+        <div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap">
+            <?= rgDonut($rgSegs) ?>
+            <div style="flex:1;min-width:170px">
+                <?php foreach ($rgSegs as $cs): if ($cs['value'] <= 0) continue; $pc = $rgTotal ? round($cs['value'] / $rgTotal * 100) : 0; ?>
+                <div class="rg-cat-row" data-cat="<?= htmlspecialchars($cs['key'], ENT_QUOTES) ?>" style="display:flex;align-items:center;gap:8px;margin-bottom:9px;font-size:13px;cursor:pointer;padding:3px 4px;border-radius:5px">
+                    <span style="width:12px;height:12px;border-radius:3px;background:<?= $cs['color'] ?>;flex-shrink:0"></span>
+                    <span style="flex:1"><?= htmlspecialchars($cs['label']) ?></span>
+                    <strong><?= $cs['value'] ?></strong>
+                    <span style="color:var(--muted);font-size:11px;width:38px;text-align:right"><?= $pc ?>%</span>
+                </div>
+                <?php endforeach; ?>
+            </div>
+        </div>
+    </div>
+    <div class="card">
+        <div class="card-title"><i class="fas fa-chart-bar" style="color:#2563eb"></i> Members per Research Group
+            <span style="font-size:11px;color:var(--muted);font-weight:400;margin-left:4px">(click a bar for names)</span>
+        </div>
+        <?php if (empty($rgSizes)): ?>
+        <p style="color:var(--muted);font-size:13px">No research groups in this faculty.</p>
+        <?php else: foreach ($rgSizes as $row): $w = round($row['cnt'] / $rgSizeMax * 100); ?>
+        <div class="rg-bar-row" data-grp="<?= htmlspecialchars($row['name'], ENT_QUOTES) ?>" style="margin-bottom:9px;cursor:pointer;padding:2px 4px;border-radius:5px">
+            <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">
+                <span style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:80%"><?= htmlspecialchars($row['name']) ?></span>
+                <strong><?= (int)$row['cnt'] ?></strong>
+            </div>
+            <div style="height:9px;background:#e9eef5;border-radius:5px;overflow:hidden">
+                <div style="height:100%;width:<?= $w ?>%;border-radius:5px;background:linear-gradient(90deg,#60a5fa,#2563eb)"></div>
+            </div>
+        </div>
+        <?php endforeach; ?>
+        <?php endif; ?>
+    </div>
+</div>
+
+<!-- Research-group drill-down panel -->
+<div class="card" id="rgDetail" style="display:none;margin-bottom:1rem;border-left:4px solid #0d9488">
+    <div class="card-title" style="display:flex;justify-content:space-between;align-items:center">
+        <span id="rgDetailTitle"></span>
+        <span onclick="closeRgDetail()" style="cursor:pointer;font-size:13px;font-weight:500;color:var(--muted)"><i class="fas fa-xmark"></i> Close</span>
+    </div>
+    <div id="rgDetailBody"></div>
+</div>
+
+<style>.rg-cat-row:hover,.rg-bar-row:hover{background:#f1f5f9}.rg-seg:hover{opacity:.82}</style>
+<script>
+(function(){
+    var rgGroupMembers = <?= json_encode($grpMembers ?: new stdClass(), JSON_UNESCAPED_UNICODE) ?>;
+    var rgCatMembers   = <?= json_encode($catMembers ?: new stdClass(), JSON_UNESCAPED_UNICODE) ?>;
+    function e(s){ if(s===null||s===undefined||s==='') return '—'; return String(s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+    window.showRg = function(type, key){
+        var list = (type==='group' ? rgGroupMembers[key] : rgCatMembers[key]) || [];
+        var label = (type==='group' ? 'Research Group: ' : 'Category: ') + key;
+        document.getElementById('rgDetailTitle').innerHTML = '<i class="fas fa-users" style="color:#0d9488"></i> ' + e(label) + ' <span style="color:var(--muted);font-weight:400;font-size:13px">(' + list.length + ' staff)</span>';
+        var rows = list.map(function(m){ return '<tr><td style="font-weight:600">'+e(m.name)+'</td><td>'+e(m.staff_no)+'</td><td>'+e(m.grade)+'</td><td>'+e(m.cat)+'</td></tr>'; }).join('');
+        if(!rows) rows = '<tr><td colspan="4" style="color:var(--muted)">No staff.</td></tr>';
+        document.getElementById('rgDetailBody').innerHTML = '<div class="table-wrap"><table class="arams-table"><thead><tr><th>Name</th><th>Staff No</th><th>Grade</th><th>Category</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
+        var p = document.getElementById('rgDetail'); p.style.display='block'; p.scrollIntoView({behavior:'smooth', block:'nearest'});
+    };
+    window.closeRgDetail = function(){ document.getElementById('rgDetail').style.display='none'; };
+    function bind(){
+        document.querySelectorAll('.rg-cat-row, .rg-seg').forEach(function(el){ el.addEventListener('click', function(){ showRg('cat', el.getAttribute('data-cat')); }); });
+        document.querySelectorAll('.rg-bar-row').forEach(function(el){ el.addEventListener('click', function(){ showRg('group', el.getAttribute('data-grp')); }); });
+    }
+    if (document.readyState !== 'loading') bind(); else document.addEventListener('DOMContentLoaded', bind);
+})();
+</script>
+
 <!-- Row 4: KPI Completion by Lecturer (TDPP-specific) -->
 <div class="card">
     <div class="card-title"><i class="fas fa-ranking-star" style="color:#f59e0b"></i> KPI Completion by Lecturer</div>
@@ -301,11 +521,11 @@ document.addEventListener('DOMContentLoaded', function () {
     if (typeof renderDonut !== 'function') return;
 
     renderDonut('quartileDonut', [
-        { label:'Q1',  value:<?= (int)($qMap['Q1']  ?? 0) ?>, color:'#0B3C5D' },
-        { label:'Q2',  value:<?= (int)($qMap['Q2']  ?? 0) ?>, color:'#1B998B' },
-        { label:'Q3',  value:<?= (int)($qMap['Q3']  ?? 0) ?>, color:'#3b82f6' },
-        { label:'Q4',  value:<?= (int)($qMap['Q4']  ?? 0) ?>, color:'#8b5cf6' },
-        { label:'N/A', value:<?= (int)($qMap['N/A'] ?? 0) ?>, color:'#e2e8f0' }
+        { label:'Q1',  value:<?= (int)($qMap['Q1']  ?? 0) ?>, color:'#1d4ed8' },
+        { label:'Q2',  value:<?= (int)($qMap['Q2']  ?? 0) ?>, color:'#3b82f6' },
+        { label:'Q3',  value:<?= (int)($qMap['Q3']  ?? 0) ?>, color:'#60a5fa' },
+        { label:'Q4',  value:<?= (int)($qMap['Q4']  ?? 0) ?>, color:'#93c5fd' },
+        { label:'N/A', value:<?= (int)($qMap['N/A'] ?? 0) ?>, color:'#cbd5e1' }
     ]);
 
     <?php if (!empty($pubTypes)): ?>
@@ -334,8 +554,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
     <?php if ($gsTot > 0): ?>
     renderDonut('grantStatusDonut', [
-        { label:'Active',     value:<?= $gsActive ?>, color:'#22c55e' },
-        { label:'Non-Active', value:<?= $gsNon ?>,    color:'#ef4444' }
+        { label:'Active',     value:<?= $gsActive ?>, color:'#14b8a6' },
+        { label:'Non-Active', value:<?= $gsNon ?>,    color:'#94a3b8' }
     ]);
     <?php endif; ?>
 });
@@ -483,7 +703,5 @@ function attachDonutHovers(donutId) {
     });
 }
 </script>
-
-<?php require_once __DIR__ . '/../../includes/footer.php'; ?>
 
 <?php require_once __DIR__ . '/../../includes/footer.php'; ?>

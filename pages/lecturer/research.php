@@ -274,7 +274,13 @@ function switchResTab(tabId, btn) {
     btn.classList.add('active');
     panels.forEach(p => p.style.display = 'none');
     const target = document.getElementById('panel-' + tabId);
-    if (target) target.style.display = 'block';
+    if (target) {
+        target.style.display = 'block';
+        // replay entrance animation on the newly-shown panel's cards
+        target.querySelectorAll('.card, .pub-card, .kpi-card').forEach(function(el){
+            el.style.animation = 'none'; void el.offsetWidth; el.style.animation = '';
+        });
+    }
     // reset search when switching tabs
     const s = document.querySelector('.search-input'); if (s) s.value = '';
     const sel = document.querySelector('.filter-select'); if (sel) sel.value = '';

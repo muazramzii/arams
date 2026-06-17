@@ -80,6 +80,21 @@ foreach ($lecturers as $l) {
     if (!isset($catCount[$c])) $catCount[$c] = 0;
     $catCount[$c]++;
 }
+
+// ── Calculation_FG (full): staff grade breakdown per group ────
+$gradeOrder = ['DS45','DS51/52','DS53/54','VK06','VK07','VU05','VU06','VU07','VY5'];
+$present = [];
+foreach ($lecturers as $l) { $g = trim((string)($l['grade'] ?? '')); if ($g !== '') $present[$g] = true; }
+$gradeCols = [];
+foreach ($gradeOrder as $g) if (isset($present[$g])) { $gradeCols[] = $g; unset($present[$g]); }
+foreach (array_keys($present) as $g) $gradeCols[] = $g;   // any non-standard grades last
+
+function gradeRow(array $lecs, array $cols): array {
+    $r = array_fill_keys($cols, 0); $t = 0;
+    foreach ($lecs as $l) { $g = trim((string)($l['grade'] ?? '')); if (isset($r[$g])) $r[$g]++; $t++; }
+    $r['_total'] = $t;
+    return $r;
+}
 ?>
 
 <style>
@@ -145,6 +160,45 @@ foreach ($lecturers as $l) {
             </tbody>
         </table>
     </div>
+</div>
+
+<!-- ══ Calculation_FG (full): staff by grade per research group ══ -->
+<div class="card" style="margin-bottom:1rem">
+    <div class="card-title"><i class="fas fa-table-cells" style="color:var(--teal)"></i> Staff by Grade per Research Group <span style="font-size:12px;color:var(--muted);font-weight:400">(Calculation FG)</span></div>
+    <?php if (empty($gradeCols)): ?>
+    <p style="color:var(--muted);font-size:13px">No grade data available yet.</p>
+    <?php else: ?>
+    <div class="table-wrap">
+        <table class="arams-table">
+            <thead><tr>
+                <th>Research Group</th>
+                <?php foreach ($gradeCols as $gc): ?><th style="text-align:center"><?= htmlspecialchars($gc) ?></th><?php endforeach; ?>
+                <th style="text-align:center">Total</th>
+            </tr></thead>
+            <tbody>
+            <?php
+            $colTotals = array_fill_keys($gradeCols, 0); $grand = 0;
+            $renderRow = function ($label, $lecs) use ($gradeCols, &$colTotals, &$grand) {
+                $r = gradeRow($lecs, $gradeCols);
+                echo '<tr><td style="font-weight:600">' . htmlspecialchars($label) . '</td>';
+                foreach ($gradeCols as $gc) { echo '<td style="text-align:center">' . ($r[$gc] ?: '·') . '</td>'; $colTotals[$gc] += $r[$gc]; }
+                echo '<td style="text-align:center;font-weight:700">' . $r['_total'] . '</td></tr>';
+                $grand += $r['_total'];
+            };
+            foreach ($groups as $g) $renderRow($g['group_name'], $byMaster[$g['group_id']] ?? []);
+            foreach ($byCentre as $centre => $members) $renderRow($centre . ' (External/Others)', $members);
+            if (!empty($unassigned)) $renderRow('Unassigned', $unassigned);
+            ?>
+            <tr style="border-top:2px solid var(--border);font-weight:700;background:var(--grey)">
+                <td>Total</td>
+                <?php foreach ($gradeCols as $gc): ?><td style="text-align:center"><?= $colTotals[$gc] ?></td><?php endforeach; ?>
+                <td style="text-align:center"><?= $grand ?></td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+    <p style="font-size:11px;color:var(--muted);margin-top:8px">Counts staff by JPA grade within each research group — mirrors the FRT <em>Calculation_FG</em> sheet.</p>
+    <?php endif; ?>
 </div>
 
 <!-- Master research groups -->
