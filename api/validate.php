@@ -32,9 +32,11 @@ $db = getDB();
 
 // Get the submission + lecturer info
 $st = $db->prepare(
-    "SELECT rd.lecturer_id, l.user_id AS lec_user_id, l.faculty_id
+    "SELECT rd.lecturer_id, l.user_id AS lec_user_id, l.faculty_id,
+            l.full_name AS lec_name, u.email AS lec_email
      FROM tbl_research_data rd
      JOIN tbl_lecturer l ON l.lecturer_id = rd.lecturer_id
+     JOIN tbl_user u ON u.user_id = l.user_id
      WHERE rd.data_id = ?"
 );
 $st->execute([$dataId]);
@@ -73,6 +75,28 @@ $msg = $action === 'approve'
     : 'Your research submission (ID: ' . $dataId . ') has been rejected.' . ($remarks ? ' Reason: ' . $remarks : '');
 $db->prepare("INSERT INTO tbl_notification (user_id, message, data_id) VALUES (?, ?, ?)")
    ->execute([$row['lec_user_id'], $msg, $dataId]);
+
+// Email the lecturer the result (best-effort; never block the response)
+try {
+    if (!empty($row['lec_email']) && filter_var($row['lec_email'], FILTER_VALIDATE_EMAIL)) {
+        require_once __DIR__ . '/../includes/mailer.php';
+        // Determine submission type from its child table
+        $type = 'Research';
+        $typeMap = [
+            'tbl_publication'     => 'Publication',
+            'tbl_grant'           => 'Grant',
+            'tbl_hindex'          => 'H-Index',
+            'tbl_ip_record'       => 'Intellectual Property',
+            'tbl_research_income' => 'Research Income',
+        ];
+        foreach ($typeMap as $tbl => $label) {
+            $c = $db->prepare("SELECT 1 FROM {$tbl} WHERE data_id = ? LIMIT 1");
+            $c->execute([$dataId]);
+            if ($c->fetchColumn()) { $type = $label; break; }
+        }
+        aramsSendValidationResult($row['lec_email'], $row['lec_name'], $type, $status, $remarks);
+    }
+} catch (Exception $e) { /* ignore email errors — in-app notification already sent */ }
 
 // ── KPI AUTO-COMPLETE — fires only on approval ──
 if ($action === 'approve') {
