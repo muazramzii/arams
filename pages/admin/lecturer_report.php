@@ -672,7 +672,7 @@ $initials = strtoupper(substr($lec['full_name'], 0, 2));
 
 <!-- ── PRINT STYLES ───────────────────────────────────────── -->
 <style>
-@page { size: A4 portrait; margin: 12mm; }
+@page { size: A4; margin: 12mm; }
 @media print {
     * { -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; }
     .no-print, .sidebar, .topbar, .sidebar-toggle, .btn { display:none !important; }

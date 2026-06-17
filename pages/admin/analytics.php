@@ -310,7 +310,6 @@ $quartileColors = ['#1d4ed8','#3b82f6','#60a5fa','#93c5fd','#cbd5e1'];
 }
 
 .rpt-letterhead{display:none}
-@page{size:A4 portrait;margin:12mm}
 @media print{
   *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;animation:none!important}
   .akpi,.card,.card:not(#detailPanel){opacity:1!important;transform:none!important}
@@ -330,8 +329,14 @@ $quartileColors = ['#1d4ed8','#3b82f6','#60a5fa','#93c5fd','#cbd5e1'];
   .akpi-grid{break-inside:avoid}
   .grid-2{display:block!important}
   .grid-2>.card{margin-bottom:12px}
+  /* centre donut + legend blocks (cards become full width when printed) */
+  #quartileDonut>div,#pubTypeDonut>div,#grantCatDonut>div,
+  #grantRoleDonut>div,#grantStatusDonut>div,.rg-cat-flex{justify-content:center!important}
 }
 </style>
+
+<!-- Page size/orientation rule (toggled by the orientation buttons; keeps A4) -->
+<style id="pageRule">@page{size:A4 portrait;margin:12mm}</style>
 
 <!-- Official letterhead (export/print only) -->
 <div class="rpt-letterhead">
@@ -350,10 +355,32 @@ $quartileColors = ['#1d4ed8','#3b82f6','#60a5fa','#93c5fd','#cbd5e1'];
         <h1><?= $isAdmin ? 'Institutional Analytics' : 'Personal Analytics' ?></h1>
         <p><?= $isAdmin ? 'System-wide research performance metrics' : 'Your research performance overview' ?></p>
     </div>
-    <button class="btn btn-primary" onclick="window.print()">
-        <i class="fas fa-download"></i> Export Report
-    </button>
+    <div style="display:flex;align-items:center;gap:10px" class="no-print">
+        <div style="display:inline-flex;border:1px solid var(--border);border-radius:8px;overflow:hidden">
+            <button type="button" id="orientPortrait" class="btn btn-sm" onclick="setOrient('portrait')"
+                    style="border:none;border-radius:0;background:var(--blue);color:#fff">
+                <i class="fas fa-file"></i> Portrait
+            </button>
+            <button type="button" id="orientLandscape" class="btn btn-sm" onclick="setOrient('landscape')"
+                    style="border:none;border-radius:0;background:#fff;color:var(--text)">
+                <i class="fas fa-file" style="transform:rotate(90deg)"></i> Landscape
+            </button>
+        </div>
+        <button class="btn btn-primary" onclick="window.print()">
+            <i class="fas fa-download"></i> Export Report
+        </button>
+    </div>
 </div>
+
+<script>
+function setOrient(o){
+    document.getElementById('pageRule').textContent = '@page{size:A4 ' + o + ';margin:12mm}';
+    var p = document.getElementById('orientPortrait'), l = document.getElementById('orientLandscape');
+    var on = 'var(--blue)', off = '#fff';
+    p.style.background = (o === 'portrait')  ? on : off; p.style.color = (o === 'portrait')  ? '#fff' : 'var(--text)';
+    l.style.background = (o === 'landscape') ? on : off; l.style.color = (o === 'landscape') ? '#fff' : 'var(--text)';
+}
+</script>
 
 <!-- KPI Cards -->
 <div class="akpi-grid">
@@ -601,7 +628,7 @@ $quartileColors = ['#1d4ed8','#3b82f6','#60a5fa','#93c5fd','#cbd5e1'];
             ];
             $rgTotal = array_sum(array_column($rgSegs, 'value'));
         ?>
-        <div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap">
+        <div class="rg-cat-flex" style="display:flex;align-items:center;gap:20px;flex-wrap:wrap">
             <?= rgDonut($rgSegs) ?>
             <div style="flex:1;min-width:170px">
                 <?php foreach ($rgSegs as $cs): if ($cs['value'] <= 0) continue; $pc = $rgTotal ? round($cs['value'] / $rgTotal * 100) : 0; ?>

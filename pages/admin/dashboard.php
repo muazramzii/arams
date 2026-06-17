@@ -5,6 +5,7 @@
 $pageTitle  = 'Admin Dashboard';
 $activePage = 'dashboard';
 require_once __DIR__ . '/../../includes/header.php';
+require_once __DIR__ . '/../../includes/avatar.php';
 
 $db = getDB();
 
@@ -21,7 +22,9 @@ $totals = $db->query(
 
 // Top 5 lecturers
 $top5 = $db->query(
-    "SELECT * FROM vw_lecturer_kpi ORDER BY total_publications DESC LIMIT 5"
+    "SELECT k.*, l.profile_photo
+     FROM vw_lecturer_kpi k JOIN tbl_lecturer l ON l.lecturer_id = k.lecturer_id
+     ORDER BY k.total_publications DESC LIMIT 5"
 )->fetchAll();
 
 
@@ -90,7 +93,12 @@ $rankStyle = ['🥇','🥈','🥉','4','5'];
                 <?php foreach ($top5 as $i => $l): ?>
                 <tr>
                     <td style="font-size:18px"><?= $rankStyle[$i] ?></td>
-                    <td style="font-weight:600"><?= htmlspecialchars($l['full_name']) ?></td>
+                    <td style="font-weight:600">
+                        <div style="display:flex;align-items:center;gap:10px">
+                            <?= lecAvatar($l['profile_photo'] ?? '', $l['full_name'], 34) ?>
+                            <span><?= htmlspecialchars($l['full_name']) ?></span>
+                        </div>
+                    </td>
                     <td style="font-size:12px;color:var(--muted)"><?= htmlspecialchars($l['faculty_code']) ?></td>
                     <td><?= (int)$l['total_publications'] ?></td>
                     <td><?= (int)$l['current_hindex'] ?></td>
