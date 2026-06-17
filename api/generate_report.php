@@ -283,7 +283,7 @@ $filename  = strtolower(str_replace(' ', '_', $title)) . '_' . $yearLabel . '_' 
 
 if ($format === 'CSV') {
     // ── CSV output ────────────────────────────────────────
-    $csv = '';
+    $csv = "\xEF\xBB\xBF"; // UTF-8 BOM so Excel renders names/symbols correctly
     $csv .= implode(',', array_map(fn($c) => '"' . str_replace('"','""',$c) . '"', $cols)) . "\n";
     foreach ($rows as $row) {
         $csv .= implode(',', array_map(fn($c) => '"' . str_replace('"','""', (string)$c) . '"', $row)) . "\n";
