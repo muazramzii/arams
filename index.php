@@ -45,6 +45,10 @@ $error = htmlspecialchars($_GET['error'] ?? '');
             <div class="alert alert-warning"><i class="fas fa-lock"></i> You are not authorised to access that page.</div>
             <?php endif; ?>
 
+            <?php if (($_GET['reset'] ?? '') === 'success'): ?>
+            <div class="alert alert-success"><i class="fas fa-check-circle"></i> Password updated. You can now log in with your new password.</div>
+            <?php endif; ?>
+
             <form method="POST" action="/arams/api/login.php">
                 <div class="form-group">
                     <label class="form-label">Email Address</label>
@@ -100,7 +104,7 @@ $error = htmlspecialchars($_GET['error'] ?? '');
             </form>
 
             <div class="login-footer" style="margin-top:1rem">
-                <a href="#">Forgot password?</a>
+                <a href="/arams/forgot_password.php">Forgot password?</a>
             </div>
             <div class="login-footer" style="margin-top:6px;font-size:11px;opacity:.5">
                 test je dulu— Admin: admin.tncpi@uthm.edu.my / password<br>
