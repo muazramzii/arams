@@ -32,8 +32,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $code = (string) random_int(100000, 999999);
             $hash = password_hash($code, PASSWORD_DEFAULT);
             $db->prepare("DELETE FROM tbl_password_reset WHERE email = ? AND used = 0")->execute([$email]);
-            $db->prepare("INSERT INTO tbl_password_reset (email, otp_hash, expires_at) VALUES (?, ?, ?)")
-               ->execute([$email, $hash, date('Y-m-d H:i:s', time() + 600)]);
+            $db->prepare("INSERT INTO tbl_password_reset (email, otp_hash, expires_at) VALUES (?, ?, DATE_ADD(NOW(), INTERVAL 10 MINUTE))")
+               ->execute([$email, $hash]);
             $sent = aramsSendOtp($email, $code);
             if (!$sent['success']) {
                 $error = 'Could not send the email right now. Please try again in a moment.';

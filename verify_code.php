@@ -27,8 +27,8 @@ if (($_GET['resend'] ?? '') === '1') {
             $code = (string) random_int(100000, 999999);
             $hash = password_hash($code, PASSWORD_DEFAULT);
             $db->prepare("DELETE FROM tbl_password_reset WHERE email = ? AND used = 0")->execute([$email]);
-            $db->prepare("INSERT INTO tbl_password_reset (email, otp_hash, expires_at) VALUES (?, ?, ?)")
-               ->execute([$email, $hash, date('Y-m-d H:i:s', time() + 600)]);
+            $db->prepare("INSERT INTO tbl_password_reset (email, otp_hash, expires_at) VALUES (?, ?, DATE_ADD(NOW(), INTERVAL 10 MINUTE))")
+               ->execute([$email, $hash]);
             aramsSendOtp($email, $code);
         }
         $_SESSION['pwr_sent_at'] = time();
@@ -114,6 +114,9 @@ $maskedEmail = preg_replace_callback('/^(.).*(@.*)$/u', fn($m) => $m[1] . str_re
             </div>
             <div class="login-footer" style="margin-top:6px">
                 <a href="/arams/forgot_password.php"><i class="fas fa-arrow-left"></i> Use a different email</a>
+            </div>
+            <div class="login-footer" style="margin-top:6px">
+                <a href="/arams/index.php"><i class="fas fa-right-to-bracket"></i> Back to Login</a>
             </div>
         </div>
         <p class="login-copy">© <?= date('Y') ?> Universiti Tun Hussein Onn Malaysia</p>
