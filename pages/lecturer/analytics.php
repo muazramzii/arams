@@ -176,26 +176,34 @@ $quartileColors = ['#1d4ed8','#3b82f6','#60a5fa','#93c5fd','#cbd5e1'];
 </div>
 
 <!-- KPI Cards -->
-<div class="kpi-grid">
-    <div class="kpi-card bg-blue">
-        <i class="fas fa-file-alt"></i>
-        <div class="kpi-val"><?= number_format((int)($kpiRow['pubs']     ?? 0)) ?></div>
-        <div class="kpi-label">Total Publications</div>
+<div class="akpi-grid">
+    <div class="akpi" style="--g1:#3b82f6;--g2:#2563eb">
+        <div class="akpi-ic"><i class="fas fa-file-alt"></i></div>
+        <div class="akpi-body">
+            <div class="akpi-num" data-target="<?= (int)($kpiRow['pubs'] ?? 0) ?>" data-dec="0">0</div>
+            <div class="akpi-label">Total Publications</div>
+        </div>
     </div>
-    <div class="kpi-card bg-purple">
-        <i class="fas fa-trophy"></i>
-        <div class="kpi-val"><?= number_format((int)($kpiRow['grants']   ?? 0)) ?></div>
-        <div class="kpi-label">Total Grants</div>
+    <div class="akpi" style="--g1:#8b5cf6;--g2:#6d28d9">
+        <div class="akpi-ic"><i class="fas fa-trophy"></i></div>
+        <div class="akpi-body">
+            <div class="akpi-num" data-target="<?= (int)($kpiRow['grants'] ?? 0) ?>" data-dec="0">0</div>
+            <div class="akpi-label">Total Grants</div>
+        </div>
     </div>
-    <div class="kpi-card bg-teal">
-        <i class="fas fa-chart-line"></i>
-        <div class="kpi-val"><?= number_format((float)($kpiRow['hindex'] ?? 0), $isAdmin ? 1 : 0) ?></div>
-        <div class="kpi-label"><?= $isAdmin ? 'Average' : 'Your' ?> H-Index</div>
+    <div class="akpi" style="--g1:#14b8a6;--g2:#0d9488">
+        <div class="akpi-ic"><i class="fas fa-chart-line"></i></div>
+        <div class="akpi-body">
+            <div class="akpi-num" data-target="<?= (float)($kpiRow['hindex'] ?? 0) ?>" data-dec="<?= $isAdmin ? 1 : 0 ?>">0</div>
+            <div class="akpi-label"><?= $isAdmin ? 'Average' : 'Your' ?> H-Index</div>
+        </div>
     </div>
-    <div class="kpi-card bg-green">
-        <i class="fas fa-quote-left"></i>
-        <div class="kpi-val"><?= number_format((int)($kpiRow['citations'] ?? 0)) ?></div>
-        <div class="kpi-label">Total Citations</div>
+    <div class="akpi" style="--g1:#f43f5e;--g2:#be123c">
+        <div class="akpi-ic"><i class="fas fa-quote-left"></i></div>
+        <div class="akpi-body">
+            <div class="akpi-num" data-target="<?= (int)($kpiRow['citations'] ?? 0) ?>" data-dec="0">0</div>
+            <div class="akpi-label">Total Citations</div>
+        </div>
     </div>
 </div>
 

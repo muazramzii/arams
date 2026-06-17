@@ -21,13 +21,25 @@
         var dec = (raw.split('.')[1] || '').length;
         var target = parseFloat(raw.replace(/,/g, ''));
         if (!isFinite(target) || target === 0) return;
-        var dur = 900, start = null;
+        animate(el, target, dec);
+    }
+    function animateTarget(el){
+        var target = parseFloat(el.getAttribute('data-target')) || 0;
+        var dec = parseInt(el.getAttribute('data-dec') || '0', 10);
+        if (target === 0) { el.textContent = (0).toFixed(dec); return; }
+        animate(el, target, dec);
+    }
+    function animate(el, target, dec){
+        var dur = 950, start = null;
         function fmt(v){ return v.toLocaleString('en-US', {minimumFractionDigits: dec, maximumFractionDigits: dec}); }
         function step(ts){ if(!start)start=ts; var p=Math.min((ts-start)/dur,1); var e=1-Math.pow(1-p,3);
             el.textContent=fmt(target*e); if(p<1) requestAnimationFrame(step); else el.textContent=fmt(target); }
         requestAnimationFrame(step);
     }
-    function run(){ document.querySelectorAll('.kpi-val').forEach(animateVal); }
+    function run(){
+        document.querySelectorAll('.kpi-val').forEach(animateVal);
+        document.querySelectorAll('.akpi-num[data-target]').forEach(animateTarget);
+    }
     if (document.readyState !== 'loading') run(); else document.addEventListener('DOMContentLoaded', run);
 })();
 </script>

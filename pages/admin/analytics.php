@@ -1043,27 +1043,4 @@ function closeDrill() {
 function esc(s) { if (s===null||s===undefined) return '—'; return String(s).replace(/[&<>"]/g, function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
 </script>
 
-<script>
-/* KPI count-up animation */
-(function(){
-    function fmt(v, dec){ return v.toLocaleString('en-US',{minimumFractionDigits:dec, maximumFractionDigits:dec}); }
-    function countUp(el){
-        var target = parseFloat(el.getAttribute('data-target')) || 0;
-        var dec = parseInt(el.getAttribute('data-dec') || '0', 10);
-        var dur = 1100, start = null;
-        function step(ts){
-            if (!start) start = ts;
-            var p = Math.min((ts - start) / dur, 1);
-            var eased = 1 - Math.pow(1 - p, 3);
-            el.textContent = fmt(target * eased, dec);
-            if (p < 1) requestAnimationFrame(step); else el.textContent = fmt(target, dec);
-        }
-        requestAnimationFrame(step);
-    }
-    function run(){ document.querySelectorAll('.akpi-num[data-target]').forEach(countUp); }
-    if (document.readyState !== 'loading') run();
-    else document.addEventListener('DOMContentLoaded', run);
-})();
-</script>
-
 <?php require_once __DIR__ . '/../../includes/footer.php'; ?>
